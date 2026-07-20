@@ -37,6 +37,10 @@ def _font(size: int, path: str | None):
             return ImageFont.truetype(cand, size)
         except Exception:
             continue
+    # Fallback to PIL default (low quality bitmap font)
+    import sys
+    print("[warn] No TrueType font found; timeline labels will use low-quality default.",
+          file=sys.stderr)
     return ImageFont.load_default()
 
 

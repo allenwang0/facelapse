@@ -9,3 +9,4 @@ opencv-python-headless>=4.8
 imagehash>=4.3            # perceptual-hash dedup
 imageio>=2.31
 imageio-ffmpeg>=0.4.9     # H.264 encode via bundled ffmpeg
+tqdm>=4.65                # progress bars for long-running operations

@@ -63,6 +63,9 @@ class Cache:
     def __init__(self, db_path: str):
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(db_path)
+        # Enable foreign key constraints and WAL mode for better concurrency
+        self.db.execute("PRAGMA foreign_keys = ON")
+        self.db.execute("PRAGMA journal_mode = WAL")
         self.db.executescript(SCHEMA)
         self.db.commit()
 
@@ -108,11 +111,12 @@ class Cache:
         self.db.commit()
 
     def update_faces(self, faces: list[Face]) -> None:
-        for f in faces:
-            self._insert_face(f)
-        self.db.commit()
+        with self.db:  # explicit transaction
+            for f in faces:
+                self._insert_face(f)
 
     def all_faces(self, only_self: bool = False, only_selected: bool = False) -> list[Face]:
+        # Build query with proper WHERE clause (safe since conds are hardcoded)
         q = "SELECT * FROM faces"
         conds = []
         if only_self:
@@ -174,5 +178,5 @@ def _int(b: bool | None) -> int | None:
     return None if b is None else int(b)
 
 
-def _bool(v) -> bool | None:
+def _bool(v: int | None) -> bool | None:
     return None if v is None else bool(v)

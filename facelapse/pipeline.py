@@ -16,6 +16,13 @@ from pathlib import Path
 
 import numpy as np
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Fallback if tqdm not installed: return iterable unchanged
+    def tqdm(iterable, **kwargs):  # type: ignore
+        return iterable
+
 from . import ingest, timestamps, quality, pose as pose_mod, neutral as neutral_mod
 from . import dedup, bucketing, align as align_mod, photometric, smoothing, render
 from .cache import Cache
@@ -46,8 +53,10 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
                   "neutral scoring and nasion alignment degraded.")
 
     cache = Cache(cfg.cache_db)
+    # Count total images first for progress bar
+    image_paths = list(ingest.iter_images(folder, cfg.image_exts))
     n_img = n_face = 0
-    for path in ingest.iter_images(folder, cfg.image_exts):
+    for path in tqdm(image_paths, desc="Analyzing images", unit="img"):
         ch = ingest.content_hash(path)
         if cache.has_image(ch) and not force:
             continue
@@ -86,7 +95,7 @@ def score(cfg: Config, au_scorer=None) -> None:
     # group faces by image for the margin-based identity decision
     all_faces = cache.all_faces()
     by_img: dict[str, list] = {}
-    for f in all_faces:
+    for f in tqdm(all_faces, desc="Grouping faces", unit="face", disable=len(all_faces) < 100):
         by_img.setdefault(f.content_hash, []).append(f)
 
     n_conf = n_amb = n_none = 0
@@ -172,17 +181,19 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
     ts_of = {f.content_hash: cache.image_ts(f.content_hash) for f in winners}
     winners.sort(key=lambda f: ts_of[f.content_hash].value)
 
-    frames, dates, confident, rows = [], [], [], []
+    # First pass: estimate alignment parameters (lightweight)
     params_seq = []
-    raw_rgbs = []
-    for f in winners:
+    for f in tqdm(winners, desc="Estimating alignment", unit="frame", disable=len(winners) < 20):
         rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
         params_seq.append(align_mod.estimate(f, cfg))
-        raw_rgbs.append(rgb)
 
+    # Smooth parameters across the sequence
     params_seq = smoothing.smooth_params(params_seq, cfg.smooth_window)
 
-    for f, rgb, p in zip(winners, raw_rgbs, params_seq):
+    # Second pass: decode, warp, build frames (streaming - don't accumulate raw images)
+    frames, dates, confident, rows = [], [], [], []
+    for f, p in tqdm(list(zip(winners, params_seq)), desc="Warping frames", unit="frame", disable=len(winners) < 20):
+        rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
         frames.append(align_mod.warp(rgb, p, cfg))
         ts = ts_of[f.content_hash]
         dates.append(ts.value)

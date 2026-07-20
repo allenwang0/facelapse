@@ -58,13 +58,18 @@ facelapse render --rejects rejects.json
 
 # or the whole thing at once
 facelapse run ./my_photos --grain week
+
+# use a preset config (see examples/ directory)
+facelapse --config examples/balanced.json run ./my_photos
 ```
 
-Tune everything via a config JSON: `facelapse --config my.json run ...`. See `config.py` for every knob.
+Tune everything via a config JSON: `facelapse --config my.json run ...`. See `config.py` for every knob, or start with example configs in `examples/`.
 
 ## Calibrate identity thresholds to YOUR face, not a benchmark
 
 The default `id_t_abs` and `id_margin` are conservative placeholders. Derive real values from your own labeled pairs: same-person-across-years similarities (how low a true match legitimately drops with age) versus you-vs-relatives similarities (how high a false match climbs). `identity.calibrate()` returns suggested thresholds and flags the overlap band that belongs in human review.
+
+See `examples/README.md` for a detailed calibration guide with code examples.
 
 ## Getting the "only me" folder
 

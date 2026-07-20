@@ -23,10 +23,17 @@ except Exception:
     HEIF_OK = False
 
 
-def content_hash(path: Path) -> str:
+def content_hash(path: Path, max_size_mb: int = 200) -> str:
     """Hash of raw file bytes. Identity of the CACHE ENTRY, not of the image
     content -- re-saved duplicates hash differently and are caught later by
-    perceptual hashing in dedup.py."""
+    perceptual hashing in dedup.py.
+
+    max_size_mb: reject files larger than this to prevent memory exhaustion.
+    """
+    size_bytes = path.stat().st_size
+    if size_bytes > max_size_mb * 1024 * 1024:
+        raise ValueError(f"File too large: {size_bytes / 1024 / 1024:.1f}MB > {max_size_mb}MB limit")
+
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
@@ -35,9 +42,18 @@ def content_hash(path: Path) -> str:
 
 
 def iter_images(folder: str, exts: tuple[str, ...]) -> Iterator[Path]:
-    root = Path(folder)
+    """Enumerate images in folder, with path traversal protection."""
+    root = Path(folder).resolve()  # resolve symlinks and make absolute
     for p in sorted(root.rglob("*")):
-        if p.is_file() and p.suffix.lower() in exts:
+        if not p.is_file():
+            continue
+        # Verify path is within root to prevent symlink escapes
+        try:
+            p_resolved = p.resolve()
+            p_resolved.relative_to(root)  # raises ValueError if outside root
+        except (ValueError, OSError):
+            continue
+        if p.suffix.lower() in exts:
             yield p
 
 

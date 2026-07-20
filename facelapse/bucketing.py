@@ -31,19 +31,19 @@ def composite_score(f: Face, cfg, sharp_ref: float) -> float:
     sharp_ref: a high-percentile sharpness across the set, used to scale the
     unbounded Laplacian variance into [0,1]."""
     front = frontality_score(f, cfg.max_abs_yaw_deg, cfg.max_abs_pitch_deg)
-    res = min(1.0, (f.interocular_px or 0.0) / max(cfg.min_interocular_px * 3, 1.0))
+    res = min(1.0, (f.interocular_px or 0.0) / max(cfg.min_interocular_px * cfg.resolution_scale_factor, 1.0))
     sharp = min(1.0, (f.sharpness or 0.0) / sharp_ref) if sharp_ref > 0 else 0.0
     neutral = 1.0 - min(1.0, (f.neutral_penalty or 0.0) / max(cfg.neutral_max_penalty, 1e-6))
     ident = float(np.clip((f.id_sim or 0.0), 0.0, 1.0))
     eyes = 1.0 if (f.ear is None or f.ear >= cfg.ear_closed_below) else 0.0
 
     return (
-        0.30 * front +      # pose proximity -> minimizes swivel across sequence
-        0.25 * neutral +    # neutrality
-        0.20 * sharp +      # sharpness
-        0.15 * res +        # face resolution
-        0.05 * ident +      # identity confidence (already gated; light tiebreak)
-        0.05 * eyes         # eyes open
+        cfg.score_weight_frontality * front +
+        cfg.score_weight_neutral * neutral +
+        cfg.score_weight_sharpness * sharp +
+        cfg.score_weight_resolution * res +
+        cfg.score_weight_identity * ident +
+        cfg.score_weight_eyes_open * eyes
     )
 
 
