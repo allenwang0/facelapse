@@ -1,0 +1,8 @@
+# Model-backed stages. Kept separate because they pull large wheels and
+# download weights on first run. The pipeline imports these lazily and
+# fails loud (never silently) if a stage that needs them is invoked
+# without them installed.
+insightface>=0.7.3        # SCRFD detect + ArcFace embed + 106pt + pose (buffalo_l)
+onnxruntime>=1.16         # CPU inference for insightface. Swap onnxruntime-gpu if you have CUDA.
+mediapipe>=0.10           # Face Mesh: dense 468/478 landmarks for EAR/MAR/nasion
+py-feat>=0.6              # Action Units for neutral-expression scoring

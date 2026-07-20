@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "facelapse"
+version = "0.1.0"
+description = "Reconstruct a neutral-face aging timelapse from a chaotic personal photo archive."
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["facelapse*"]
+
+[project.scripts]
+facelapse = "facelapse.cli:main"

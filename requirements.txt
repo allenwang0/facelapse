@@ -1,0 +1,11 @@
+# Core pipeline: decode, geometry, quality metrics, dedup, render.
+# These install from PyPI with no external model downloads and run the
+# entire pipeline EXCEPT face detection / identity / expression, which
+# live in requirements-ml.txt.
+numpy>=1.24
+pillow>=10.0
+pillow-heif>=0.13         # HEIC decode (iCloud exports)
+opencv-python-headless>=4.8
+imagehash>=4.3            # perceptual-hash dedup
+imageio>=2.31
+imageio-ffmpeg>=0.4.9     # H.264 encode via bundled ffmpeg
