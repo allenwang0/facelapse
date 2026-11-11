@@ -12,6 +12,7 @@ Silent starvation is the main failure mode of this kind of pipeline.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -110,19 +111,26 @@ def score(cfg: Config, au_scorer=None) -> None:
     for f in tqdm(all_faces, desc="Grouping faces", unit="face", disable=len(all_faces) < 100):
         by_img.setdefault(f.content_hash, []).append(f)
 
-    n_conf = n_amb = n_none = 0
+    promoted = cache.promotions()
+    counts = {o: 0 for o in IdOutcome}
     self_faces = []
     for ch, faces in by_img.items():
         when = cache.image_ts(ch).value
         outcome, chosen = resolve_image(faces, when, chain, cfg.id_t_abs, cfg.id_margin)
-        if outcome == IdOutcome.CONFIDENT:
-            n_conf += 1
+        picked = [f for f in faces if (ch, f.face_id) in promoted]
+        if picked:
+            for f in faces:
+                f.is_self = f is picked[0]
+            outcome, chosen = IdOutcome.PROMOTED, picked[0]
+        counts[outcome] += 1
+        cache.set_outcome(ch, outcome.value)
+        if outcome in (IdOutcome.CONFIDENT, IdOutcome.PROMOTED):
             self_faces.append(chosen)
-        elif outcome == IdOutcome.AMBIGUOUS:
-            n_amb += 1
-        else:
-            n_none += 1
-    print(f"[funnel] identity           confident {n_conf}  ambiguous {n_amb}  none {n_none}")
+    print(
+        f"[funnel] identity           confident {counts[IdOutcome.CONFIDENT]}  "
+        f"promoted {counts[IdOutcome.PROMOTED]}  ambiguous {counts[IdOutcome.AMBIGUOUS]}  "
+        f"none {counts[IdOutcome.NONE]}"
+    )
 
     # pose + neutral gates on the self-faces only
     kept_pose = kept_neutral = 0
@@ -143,6 +151,17 @@ def score(cfg: Config, au_scorer=None) -> None:
     _log("pose", kept_pose, len(self_faces))
     _log("neutral", kept_neutral, len(self_faces))
     cache.close()
+
+
+def apply_review(cfg: Config, review_path: str) -> int:
+    """Store the "this one is me" promotions from a review.json download.
+    They persist in the cache, so every later score run honors them."""
+    data = json.loads(Path(review_path).read_text())
+    keys = [(p["content_hash"], int(p["face_id"])) for p in data.get("promotions", [])]
+    cache = Cache(cfg.cache_db)
+    cache.add_promotions(keys)
+    cache.close()
+    return len(keys)
 
 
 # ---------------------------------------------------------------- select

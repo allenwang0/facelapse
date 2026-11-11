@@ -33,6 +33,7 @@ class IdOutcome(Enum):
     NONE = "none"
     CONFIDENT = "confident"
     AMBIGUOUS = "ambiguous"
+    PROMOTED = "promoted"  # ambiguous, then confirmed by hand on the review page
 
 
 class ReferenceChain:

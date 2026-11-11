@@ -70,3 +70,25 @@ def decode(path: Path) -> np.ndarray:
     img = ImageOps.exif_transpose(img)  # respect camera rotation flag
     img = img.convert("RGB")
     return np.asarray(img)
+
+
+def thumbnail(path: Path, max_w: int) -> tuple[np.ndarray, float]:
+    """Decode at most max_w pixels wide without holding the full-resolution
+    image. Image.draft lets the JPEG decoder downscale by 2/4/8 while
+    decoding. Returns the RGB array and its scale relative to the oriented
+    original, for mapping face boxes onto it."""
+    img = Image.open(path)
+    img.draft("RGB", (max_w, max_w * 4))
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    full_w = _oriented_width(path)
+    if img.width > max_w:
+        img = img.resize((max_w, max(1, round(img.height * max_w / img.width))))
+    return np.asarray(img), img.width / full_w
+
+
+def _oriented_width(path: Path) -> int:
+    with Image.open(path) as img:
+        w, h = img.size
+        if img.getexif().get(0x0112) in (5, 6, 7, 8):
+            return h
+        return w

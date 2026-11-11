@@ -14,6 +14,7 @@ Typical flow:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -63,6 +64,9 @@ def cmd_score(args):
             au = AUScorer()
         except RuntimeError as e:
             print(f"[warn] {e}")
+    if args.apply_review:
+        n = pipeline.apply_review(cfg, args.apply_review)
+        print(f"[review] stored {n} promotions from {args.apply_review}")
     pipeline.score(cfg, au_scorer=au)
 
 
@@ -71,34 +75,42 @@ def cmd_select(args):
 
 
 def cmd_review(args):
-    from pathlib import Path
-
     from . import ingest
     from .cache import Cache
-    from .review import write_review
+    from .review import THUMB_W, Thumb, write_review
 
     cfg = _cfg(args)
     cache = Cache(cfg.cache_db)
     winners = cache.all_faces(only_selected=True)
+    ambiguous = []
+    for ch in cache.hashes_with_outcome("ambiguous"):
+        faces = sorted(cache.faces_of(ch), key=lambda f: f.id_sim or 0.0, reverse=True)
+        ambiguous.append(faces[:2])
     thumbs, dates = {}, {}
-    for f in winners:
-        thumbs[f.content_hash] = ingest.decode(Path(cache.image_path(f.content_hash)))
-        dates[f.content_hash] = cache.image_ts(f.content_hash).value
-    path = write_review(winners, thumbs, dates, cfg.out_dir)
-    print(f"[review] {path}  ({len(winners)} winners)")
+    for ch in [f.content_hash for f in winners] + [faces[0].content_hash for faces in ambiguous]:
+        rgb, scale = ingest.thumbnail(Path(cache.image_path(ch)), THUMB_W)
+        thumbs[ch] = Thumb(rgb, scale)
+        dates[ch] = cache.image_ts(ch).value
+    path = write_review(winners, ambiguous, thumbs, dates, cfg.out_dir)
+    print(f"[review] {path}  ({len(winners)} winners, {len(ambiguous)} ambiguous)")
     cache.close()
 
 
 def cmd_render(args):
     cfg = _cfg(args)
-    rejects = set()
-    if args.rejects and Path(args.rejects).exists():
-        import json
-
-        rejects = set(json.loads(Path(args.rejects).read_text()))
+    rejects = _load_rejects(args.rejects)
     result = pipeline.render_final(cfg, rejects=rejects)
     print(f"[render] {result['video']}")
     print(f"[render] {result['manifest']}")
+
+
+def _load_rejects(path: str | None) -> set[str]:
+    """Accepts the review.json download ({"rejects": [...], ...}) or a plain
+    JSON list of content hashes."""
+    if not path:
+        return set()
+    data = json.loads(Path(path).read_text())
+    return set(data["rejects"] if isinstance(data, dict) else data)
 
 
 def cmd_run(args):
@@ -134,13 +146,14 @@ def main(argv=None):
     s.set_defaults(func=cmd_analyze)
     s = sub.add_parser("score")
     s.add_argument("--no-au", action="store_true")
+    s.add_argument("--apply-review", help="review.json whose promotions to store before scoring")
     s.set_defaults(func=cmd_score)
     s = sub.add_parser("select")
     s.set_defaults(func=cmd_select)
     s = sub.add_parser("review")
     s.set_defaults(func=cmd_review)
     s = sub.add_parser("render")
-    s.add_argument("--rejects", help="JSON list of content_hashes to drop")
+    s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")
     s.set_defaults(func=cmd_render)
     s = sub.add_parser("run")
     s.add_argument("folder")

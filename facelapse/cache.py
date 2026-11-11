@@ -59,6 +59,18 @@ CREATE INDEX IF NOT EXISTS idx_faces_self ON faces(is_self);
 CREATE INDEX IF NOT EXISTS idx_faces_bucket ON faces(bucket);
 """
 
+# Applied in order to bring PRAGMA user_version from i to i + 1.
+MIGRATIONS = [
+    """
+    ALTER TABLE images ADD COLUMN id_outcome TEXT;
+    CREATE TABLE promotions (
+        content_hash TEXT NOT NULL,
+        face_id INTEGER NOT NULL,
+        PRIMARY KEY (content_hash, face_id)
+    );
+    """,
+]
+
 
 class Cache:
     def __init__(self, db_path: str):
@@ -68,7 +80,14 @@ class Cache:
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("PRAGMA journal_mode = WAL")
         self.db.executescript(SCHEMA)
+        self._migrate()
         self.db.commit()
+
+    def _migrate(self) -> None:
+        version = self.db.execute("PRAGMA user_version").fetchone()[0]
+        for i in range(version, len(MIGRATIONS)):
+            self.db.executescript(MIGRATIONS[i])
+            self.db.execute(f"PRAGMA user_version = {i + 1}")
 
     def close(self) -> None:
         self.db.close()
@@ -81,7 +100,8 @@ class Cache:
     def upsert_image(self, rec: ImageRecord) -> None:
         ts_iso = rec.ts.value.isoformat() if rec.ts.value else None
         self.db.execute(
-            "INSERT OR REPLACE INTO images VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO images (content_hash, path, width, height, ts_iso, "
+            "ts_source, decoded_ok, error) VALUES (?,?,?,?,?,?,?,?)",
             (
                 rec.content_hash,
                 rec.path,
@@ -149,6 +169,31 @@ class Cache:
             "UPDATE faces SET is_self=0, id_sim=NULL, id_margin=NULL, passes_pose=NULL, "
             "passes_neutral=NULL, neutral_penalty=NULL"
         )
+        self.db.execute("UPDATE images SET id_outcome=NULL")
+
+    def set_outcome(self, content_hash: str, outcome: str) -> None:
+        """Not committed; written with the score results."""
+        self.db.execute(
+            "UPDATE images SET id_outcome=? WHERE content_hash=?", (outcome, content_hash)
+        )
+
+    def hashes_with_outcome(self, outcome: str) -> list[str]:
+        rows = self.db.execute(
+            "SELECT content_hash FROM images WHERE id_outcome=? ORDER BY ts_iso", (outcome,)
+        )
+        return [r[0] for r in rows]
+
+    def faces_of(self, content_hash: str) -> list[Face]:
+        cur = self.db.execute("SELECT * FROM faces WHERE content_hash=?", (content_hash,))
+        cols = [c[0] for c in cur.description]
+        return [self._row_to_face(dict(zip(cols, r))) for r in cur.fetchall()]
+
+    def add_promotions(self, keys: list[tuple[str, int]]) -> None:
+        with self.db:
+            self.db.executemany("INSERT OR IGNORE INTO promotions VALUES (?,?)", keys)
+
+    def promotions(self) -> set[tuple[str, int]]:
+        return {(h, int(i)) for h, i in self.db.execute("SELECT * FROM promotions")}
 
     def reset_selection(self) -> None:
         """Clear bucket winners. Not committed, same as reset_scores."""
