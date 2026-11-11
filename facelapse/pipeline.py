@@ -146,7 +146,9 @@ def score(cfg: Config, au_scorer=None) -> None:
 
 
 # ---------------------------------------------------------------- select
-def select(cfg: Config) -> list:
+def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
+    """allow_mtime_dates admits photos dated only by file mtime; by default
+    they are dropped because mtime dates screenshots, copies and re-saves."""
     cache = Cache(cfg.cache_db)
     cache.reset_selection()
     self_faces = cache.all_faces(only_self=True)
@@ -176,12 +178,15 @@ def select(cfg: Config) -> list:
         deduped.append(f)
     _log("dedup", len(deduped), len(gated))
 
-    ts_of = {f.content_hash: cache.image_ts(f.content_hash).value for f in deduped}
-    ts_of = {k: v for k, v in ts_of.items() if v is not None}
-    winners = bucketing.select_best_per_bucket(
-        [f for f in deduped if f.content_hash in ts_of], ts_of, cfg
-    )
-    _log("bucket-winners", len(winners), len(deduped))
+    ts_of = {}
+    for f in deduped:
+        ts = cache.image_ts(f.content_hash)
+        if ts.value is not None and (ts.is_trustworthy or allow_mtime_dates):
+            ts_of[f.content_hash] = ts.value
+    dated = [f for f in deduped if f.content_hash in ts_of]
+    _log("trusted-date", len(dated), len(deduped))
+    winners = bucketing.select_best_per_bucket(dated, ts_of, cfg)
+    _log("bucket-winners", len(winners), len(dated))
 
     cache.update_faces(winners)
     cache.close()

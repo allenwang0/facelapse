@@ -22,6 +22,7 @@ from facelapse import pipeline
 from facelapse.cache import Cache
 from facelapse.config import Config
 from facelapse.records import Face
+from tests.helpers import exif_with_date
 
 
 def _dense_neutral(cx: float, cy: float, scale: float) -> np.ndarray:
@@ -131,7 +132,7 @@ def _norm(v):
 _name_by_hash: dict[str, str] = {}
 
 
-def _make_image(path: Path, seed: int):
+def _make_image(path: Path, seed: int, when: datetime):
     rng = np.random.default_rng(seed)
     # a vaguely face-ish gradient so decode/sharpness/photometric have real pixels
     base = np.zeros((480, 480, 3), np.uint8)
@@ -140,7 +141,7 @@ def _make_image(path: Path, seed: int):
     base[..., 1] = (110 + 60 * np.cos(yy / 50 + seed)).astype(np.uint8)
     base[..., 2] = (90 + 40 * np.sin((xx + yy) / 70)).astype(np.uint8)
     base = (base.astype(np.int16) + rng.integers(-10, 10, base.shape)).clip(0, 255).astype(np.uint8)
-    Image.fromarray(base).save(path, quality=90)
+    Image.fromarray(base).save(path, quality=90, exif=exif_with_date(when))
 
 
 def test_smoke_pipeline(tmp_path: Path) -> None:
@@ -167,14 +168,12 @@ def test_smoke_pipeline(tmp_path: Path) -> None:
         ("other_2022", datetime(2022, 1, 6)),
         ("me_2023", datetime(2023, 11, 20)),
     ]
-    import os
 
     from facelapse import ingest
 
     for i, (name, dt) in enumerate(plan):
         p = photos / f"{name}.jpg"
-        _make_image(p, seed=i)
-        os.utime(p, (dt.timestamp(), dt.timestamp()))  # mtime fallback date
+        _make_image(p, seed=i, when=dt)
         _name_by_hash[ingest.content_hash(p)] = name
 
     det, mesh = StubDetector(), StubMesh()
