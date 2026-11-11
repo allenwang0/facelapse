@@ -8,6 +8,7 @@ FILM/RIFE later, the date LABEL must hold on the source frame's date across
 interpolated frames while the marker GLIDES; that logic belongs here, keyed to
 whether a frame is real or interpolated.
 """
+
 from __future__ import annotations
 
 import json
@@ -44,15 +45,18 @@ def render_video(
         frames = [tl.draw(f, dt, c) for f, dt, c in zip(frames, dates, confident)]
 
     writer = imageio.get_writer(
-        video_path, fps=cfg.fps, codec="libx264",
-        quality=8, macro_block_size=1,
+        video_path,
+        fps=cfg.fps,
+        codec="libx264",
+        quality=8,
+        macro_block_size=1,
     )
     prev = None
     for f in frames:
         f = _even(f)
         if cfg.crossfade_frames > 0 and prev is not None:
             for a in np.linspace(0, 1, cfg.crossfade_frames + 2)[1:-1]:
-                blend = (prev.astype(np.float32) * (1 - a) + f.astype(np.float32) * a)
+                blend = prev.astype(np.float32) * (1 - a) + f.astype(np.float32) * a
                 writer.append_data(blend.astype(np.uint8))
         writer.append_data(f)
         prev = f

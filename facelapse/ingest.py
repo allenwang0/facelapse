@@ -3,6 +3,7 @@
 Never downscale here. Original resolution feeds the sharpness and face-size
 metrics; downscaling happens only at render.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +18,7 @@ from PIL import Image, ImageOps
 # silent decode failure.
 try:
     import pillow_heif  # type: ignore
+
     pillow_heif.register_heif_opener()
     HEIF_OK = True
 except Exception:
@@ -32,7 +34,9 @@ def content_hash(path: Path, max_size_mb: int = 200) -> str:
     """
     size_bytes = path.stat().st_size
     if size_bytes > max_size_mb * 1024 * 1024:
-        raise ValueError(f"File too large: {size_bytes / 1024 / 1024:.1f}MB > {max_size_mb}MB limit")
+        raise ValueError(
+            f"File too large: {size_bytes / 1024 / 1024:.1f}MB > {max_size_mb}MB limit"
+        )
 
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -63,6 +67,6 @@ def decode(path: Path) -> np.ndarray:
     if path.suffix.lower() in (".heic", ".heif") and not HEIF_OK:
         raise RuntimeError(f"HEIC file but pillow-heif not installed: {path}")
     img = Image.open(path)
-    img = ImageOps.exif_transpose(img)   # respect camera rotation flag
+    img = ImageOps.exif_transpose(img)  # respect camera rotation flag
     img = img.convert("RGB")
     return np.asarray(img)

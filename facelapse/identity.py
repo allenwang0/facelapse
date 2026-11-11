@@ -17,10 +17,12 @@ Outcomes per image:
   - one face clears T_abs, margin >= M           -> confident hit       (take it)
   - top clears T_abs but margin < M              -> ambiguous           (review/drop)
 """
+
 from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -41,16 +43,14 @@ class ReferenceChain:
         self.k = k
         self.embeds = np.stack([e for _, _, e in seeds]) if seeds else np.zeros((0, 512))
         # seconds since epoch; None dates get NaN and are only used as fallback
-        self.times = np.array(
-            [(_epoch(t) if t else np.nan) for _, t, _ in seeds], dtype=np.float64
-        )
+        self.times = np.array([(_epoch(t) if t else np.nan) for _, t, _ in seeds], dtype=np.float64)
 
     def similarity(self, emb: np.ndarray, when: datetime | None) -> float:
         """Max cosine similarity against the k temporally-nearest references.
         Embeddings are L2-normalized, so dot product == cosine."""
         if self.embeds.shape[0] == 0:
             raise RuntimeError("No reference seeds. Run `facelapse seed` first.")
-        sims = self.embeds @ emb                       # (n_refs,)
+        sims = self.embeds @ emb  # (n_refs,)
         if when is not None and np.isfinite(self.times).any():
             dt = np.abs(self.times - _epoch(when))
             dt = np.where(np.isnan(dt), np.inf, dt)
@@ -61,8 +61,11 @@ class ReferenceChain:
 
 
 def resolve_image(
-    faces: list[Face], when: datetime | None, chain: ReferenceChain,
-    t_abs: float, margin: float,
+    faces: list[Face],
+    when: datetime | None,
+    chain: ReferenceChain,
+    t_abs: float,
+    margin: float,
 ) -> tuple[IdOutcome, Face | None]:
     """Score all faces in one image; apply floor + margin. Mutates id_sim /
     id_margin on the faces for later inspection."""
@@ -91,7 +94,7 @@ def resolve_image(
 def calibrate(
     same_pairs: list[tuple[np.ndarray, np.ndarray]],
     diff_pairs: list[tuple[np.ndarray, np.ndarray]],
-) -> dict:
+) -> dict[str, Any]:
     """Derive defensible thresholds from YOUR labeled pairs instead of a
     borrowed benchmark number.
 
@@ -105,7 +108,7 @@ def calibrate(
     """
     same = np.array([float(a @ b) for a, b in same_pairs]) if same_pairs else np.array([])
     diff = np.array([float(a @ b) for a, b in diff_pairs]) if diff_pairs else np.array([])
-    out: dict = {}
+    out: dict[str, Any] = {}
     if same.size:
         out["same_min"] = float(same.min())
         out["same_p05"] = float(np.percentile(same, 5))
@@ -116,14 +119,17 @@ def calibrate(
         out["diff_max"] = float(diff.max())
         out["diff_p95"] = float(np.percentile(diff, 95))
         # margin wide enough to clear the false-match upper tail
-        out["suggested_margin"] = round(max(0.05, float(np.percentile(diff, 95))
-                                            - out.get("same_p05", 0.0)), 3)
+        out["suggested_margin"] = round(
+            max(0.05, float(np.percentile(diff, 95)) - out.get("same_p05", 0.0)), 3
+        )
     if same.size and diff.size:
         overlap = max(0.0, float(diff.max()) - float(same.min()))
         out["overlap"] = overlap
         out["overlap_warning"] = (
             "Non-trivial overlap: pairs in this band are irreducibly ambiguous "
-            "and must go to human review." if overlap > 0.03 else "Clean separation."
+            "and must go to human review."
+            if overlap > 0.03
+            else "Clean separation."
         )
     return out
 

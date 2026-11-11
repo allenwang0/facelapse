@@ -6,6 +6,7 @@ you edit by hand to veto frames before the final render.
 
 Dev tool, not a product surface: static HTML, no server needed.
 """
+
 from __future__ import annotations
 
 import base64
@@ -28,7 +29,10 @@ def _thumb_data_uri(rgb: np.ndarray, max_w: int = 220) -> str:
 
 
 def write_review(
-    selected: list[Face], thumbs: dict[str, np.ndarray], dates: dict, out_dir: str,
+    selected: list[Face],
+    thumbs: dict[str, np.ndarray],
+    dates: dict,
+    out_dir: str,
 ) -> str:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -67,7 +71,8 @@ _PAGE = """<!doctype html><meta charset="utf-8">
  .card.rej{opacity:.3;outline:2px solid #822}
  .meta{padding:8px;color:#9a9a9a;font-size:11px}
 </style>
-<h1>Selected per-bucket winners. Click a card to toggle reject. Rejected hashes print to console for the render step.</h1>
+<h1>Selected per-bucket winners. Click a card to toggle reject.
+ Rejected hashes print to console for the render step.</h1>
 <div class="grid">{{CARDS}}</div>
 <script>
  const rej=new Set();

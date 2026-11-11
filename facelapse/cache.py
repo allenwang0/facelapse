@@ -7,6 +7,7 @@ SQLite over a pile of JSON files because bucketing and selection are
 queries, and one inspectable file beats thousands of tiny ones. Embeddings
 and keypoints are stored as raw float32 BLOBs (np.tobytes / np.frombuffer).
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -81,8 +82,16 @@ class Cache:
         ts_iso = rec.ts.value.isoformat() if rec.ts.value else None
         self.db.execute(
             "INSERT OR REPLACE INTO images VALUES (?,?,?,?,?,?,?,?)",
-            (rec.content_hash, rec.path, rec.width, rec.height,
-             ts_iso, int(rec.ts.source), int(rec.decoded_ok), rec.error),
+            (
+                rec.content_hash,
+                rec.path,
+                rec.width,
+                rec.height,
+                ts_iso,
+                int(rec.ts.source),
+                int(rec.decoded_ok),
+                rec.error,
+            ),
         )
         self.db.execute("DELETE FROM faces WHERE content_hash=?", (rec.content_hash,))
         for f in rec.faces:
@@ -97,13 +106,31 @@ class Cache:
                 ear, mar, neutral_penalty, id_sim, id_margin, is_self,
                 passes_pose, passes_neutral, composite, selected, bucket)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (f.content_hash, f.face_id, _blob(f.bbox), _blob(f.kps),
-             _blob(f.embedding), _blob(f.dense),
-             f.yaw, f.pitch, f.roll, f.det_score,
-             f.interocular_px, f.sharpness, f.ear, f.mar, f.neutral_penalty,
-             f.id_sim, f.id_margin, int(f.is_self),
-             _int(f.passes_pose), _int(f.passes_neutral),
-             f.composite, int(f.selected), f.bucket),
+            (
+                f.content_hash,
+                f.face_id,
+                _blob(f.bbox),
+                _blob(f.kps),
+                _blob(f.embedding),
+                _blob(f.dense),
+                f.yaw,
+                f.pitch,
+                f.roll,
+                f.det_score,
+                f.interocular_px,
+                f.sharpness,
+                f.ear,
+                f.mar,
+                f.neutral_penalty,
+                f.id_sim,
+                f.id_margin,
+                int(f.is_self),
+                _int(f.passes_pose),
+                _int(f.passes_neutral),
+                f.composite,
+                int(f.selected),
+                f.bucket,
+            ),
         )
 
     def update_face(self, f: Face) -> None:
@@ -140,22 +167,37 @@ class Cache:
         return Timestamp(val, TsSource(src))
 
     def image_path(self, content_hash: str) -> str:
-        r = self.db.execute("SELECT path FROM images WHERE content_hash=?", (content_hash,)).fetchone()
+        r = self.db.execute(
+            "SELECT path FROM images WHERE content_hash=?", (content_hash,)
+        ).fetchone()
         return r[0] if r else ""
 
     @staticmethod
     def _row_to_face(d: dict) -> Face:
         return Face(
-            content_hash=d["content_hash"], face_id=d["face_id"],
-            bbox=_arr(d["bbox"], (4,)), kps=_arr(d["kps"], (5, 2)),
+            content_hash=d["content_hash"],
+            face_id=d["face_id"],
+            bbox=_arr(d["bbox"], (4,)),
+            kps=_arr(d["kps"], (5, 2)),
             embedding=_arr(d["embedding"], (-1,)),
             dense=_arr(d["dense"], (-1, 2)) if d["dense"] else None,
-            yaw=d["yaw"], pitch=d["pitch"], roll=d["roll"], det_score=d["det_score"],
-            interocular_px=d["interocular_px"], sharpness=d["sharpness"],
-            ear=d["ear"], mar=d["mar"], neutral_penalty=d["neutral_penalty"],
-            id_sim=d["id_sim"], id_margin=d["id_margin"], is_self=bool(d["is_self"]),
-            passes_pose=_bool(d["passes_pose"]), passes_neutral=_bool(d["passes_neutral"]),
-            composite=d["composite"], selected=bool(d["selected"]), bucket=d["bucket"],
+            yaw=d["yaw"],
+            pitch=d["pitch"],
+            roll=d["roll"],
+            det_score=d["det_score"],
+            interocular_px=d["interocular_px"],
+            sharpness=d["sharpness"],
+            ear=d["ear"],
+            mar=d["mar"],
+            neutral_penalty=d["neutral_penalty"],
+            id_sim=d["id_sim"],
+            id_margin=d["id_margin"],
+            is_self=bool(d["is_self"]),
+            passes_pose=_bool(d["passes_pose"]),
+            passes_neutral=_bool(d["passes_neutral"]),
+            composite=d["composite"],
+            selected=bool(d["selected"]),
+            bucket=d["bucket"],
         )
 
     # ---- seeds (reference chain) ----
@@ -169,8 +211,7 @@ class Cache:
     def seeds(self) -> list[tuple[str, datetime | None, np.ndarray]]:
         out = []
         for path, ts_iso, emb in self.db.execute("SELECT path, ts_iso, embedding FROM seeds"):
-            out.append((path, datetime.fromisoformat(ts_iso) if ts_iso else None,
-                        _arr(emb, (-1,))))
+            out.append((path, datetime.fromisoformat(ts_iso) if ts_iso else None, _arr(emb, (-1,))))
         return out
 
 

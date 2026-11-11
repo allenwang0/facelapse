@@ -11,6 +11,7 @@ installed; the geometric term always runs from MediaPipe dense landmarks.
 Even combined, precision is not high enough to render blind: this produces a
 ranked shortlist, and the review step makes the final cut. That is by design.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -36,7 +37,9 @@ class AUScorer:
         """Return {AU code: activation in [0,1]} for the crop. Wrapping only;
         exact py-feat return schema is version-dependent -- VERIFY columns."""
         import tempfile
+
         import imageio.v2 as imageio
+
         with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tf:
             imageio.imwrite(tf.name, rgb_crop)
             res = self.detector.detect_image(tf.name)
@@ -79,7 +82,9 @@ def geometric_penalty(dense: np.ndarray, cfg) -> tuple[float, float, float]:
 
 
 def score_face(
-    f: Face, cfg, au_scorer: "AUScorer | None" = None,
+    f: Face,
+    cfg,
+    au_scorer: "AUScorer | None" = None,
     rgb_crop: np.ndarray | None = None,
 ) -> None:
     """Populate f.neutral_penalty, f.ear, f.mar. Requires dense landmarks for
@@ -96,5 +101,5 @@ def score_face(
             aus = au_scorer.au_activations(rgb_crop)
             total += au_penalty(aus, cfg.au_weights)
         except Exception:
-            pass   # AU stage optional; geometry already gives a usable signal
+            pass  # AU stage optional; geometry already gives a usable signal
     f.neutral_penalty = total

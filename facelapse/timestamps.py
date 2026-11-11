@@ -7,6 +7,7 @@ the junk you want gone.
 Priority: Takeout sidecar JSON > EXIF DateTimeOriginal > EXIF DateTimeDigitized
 > filename pattern > file mtime.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from PIL import Image, ExifTags
+from PIL import ExifTags, Image
 
 from .records import Timestamp, TsSource
 
@@ -24,9 +25,9 @@ _DIGITIZED = _EXIF_TAG.get("DateTimeDigitized")
 
 # Common phone filename stamps. Order matters: most specific first.
 _FILENAME_PATTERNS = [
-    re.compile(r"(?:IMG|PXL|VID)[_-](\d{8})[_-]?(\d{6})?"),   # IMG_20210517_143000
+    re.compile(r"(?:IMG|PXL|VID)[_-](\d{8})[_-]?(\d{6})?"),  # IMG_20210517_143000
     re.compile(r"(\d{4})[-_](\d{2})[-_](\d{2})[ _T-](\d{2})[-_:]?(\d{2})"),  # 2021-05-17_14-30
-    re.compile(r"(?<!\d)(\d{4})(\d{2})(\d{2})(?!\d)"),        # bare 20210517
+    re.compile(r"(?<!\d)(\d{4})(\d{2})(\d{2})(?!\d)"),  # bare 20210517
 ]
 
 
@@ -89,11 +90,11 @@ def _from_filename(path: Path) -> datetime | None:
             continue
         g = [x for x in m.groups() if x]
         try:
-            if len(g) == 1 and len(g[0]) == 8:          # YYYYMMDD
+            if len(g) == 1 and len(g[0]) == 8:  # YYYYMMDD
                 return datetime.strptime(g[0], "%Y%m%d")
-            if len(g) == 2 and len(g[0]) == 8:          # YYYYMMDD + HHMMSS
+            if len(g) == 2 and len(g[0]) == 8:  # YYYYMMDD + HHMMSS
                 return datetime.strptime(g[0] + g[1], "%Y%m%d%H%M%S")
-            if len(g) >= 5:                              # Y M D H M
+            if len(g) >= 5:  # Y M D H M
                 return datetime(int(g[0]), int(g[1]), int(g[2]), int(g[3]), int(g[4]))
         except ValueError:
             continue

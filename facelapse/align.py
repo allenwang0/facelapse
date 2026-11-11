@@ -17,6 +17,7 @@ Returns the transform PARAMETERS (angle, scale, tx, ty) as well as applying
 them, so the sequence of parameters can be smoothed (smoothing.py) before the
 final warp.
 """
+
 from __future__ import annotations
 
 import math
@@ -30,7 +31,7 @@ from .records import Face
 
 @dataclass
 class SimilarityParams:
-    angle: float   # radians
+    angle: float  # radians
     scale: float
     tx: float
     ty: float
@@ -53,6 +54,7 @@ def source_points(f: Face, use_nasion: bool) -> np.ndarray:
     pts = [f.kps[0], f.kps[1]]
     if use_nasion and f.dense is not None:
         from .landmarks import nasion_point
+
         pts.append(nasion_point(f.dense))
     return np.asarray(pts, dtype=np.float32)
 
@@ -77,13 +79,17 @@ def estimate(f: Face, cfg) -> SimilarityParams:
     M, _ = cv2.estimateAffinePartial2D(src, dst, method=cv2.LMEDS)
     if M is None:
         # fall back to eyes-only closed form if the estimator fails
-        M, _ = cv2.estimateAffinePartial2D(f.kps[:2].astype(np.float32),
-                                           target_points(cfg, False), method=cv2.LMEDS)
+        M, _ = cv2.estimateAffinePartial2D(
+            f.kps[:2].astype(np.float32), target_points(cfg, False), method=cv2.LMEDS
+        )
     return _decompose(np.asarray(M, dtype=np.float64))
 
 
 def warp(rgb: np.ndarray, params: SimilarityParams, cfg) -> np.ndarray:
     return cv2.warpAffine(
-        rgb, params.matrix(), (cfg.canvas_w, cfg.canvas_h),
-        flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE,
+        rgb,
+        params.matrix(),
+        (cfg.canvas_w, cfg.canvas_h),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE,
     )

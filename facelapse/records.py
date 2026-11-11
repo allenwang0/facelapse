@@ -2,6 +2,7 @@
 single-use local infrastructure, so the schema is the SQLite tables in
 cache.py and these are just typed views over rows.
 """
+
 from __future__ import annotations
 
 import enum
@@ -13,6 +14,7 @@ import numpy as np
 
 class TsSource(enum.IntEnum):
     """Ordered by trustworthiness; lower value = more trusted."""
+
     TAKEOUT_JSON = 0
     EXIF_ORIGINAL = 1
     EXIF_DIGITIZED = 2
@@ -57,11 +59,12 @@ class Face:
     embedding: L2-normalized ArcFace vector (512-d for buffalo_l)
     pose: (yaw, pitch, roll) degrees -- see detection.py # VERIFY on axis order
     """
+
     content_hash: str
     face_id: int
-    bbox: np.ndarray                 # (4,) x1,y1,x2,y2
-    kps: np.ndarray                  # (5,2)
-    embedding: np.ndarray            # (512,)
+    bbox: np.ndarray  # (4,) x1,y1,x2,y2
+    kps: np.ndarray  # (5,2)
+    embedding: np.ndarray  # (512,)
     yaw: float
     pitch: float
     roll: float
@@ -71,15 +74,15 @@ class Face:
     # scores populated by later stages (None until computed)
     interocular_px: float | None = None
     sharpness: float | None = None
-    ear: float | None = None         # eye aspect ratio (eyes-open signal)
-    mar: float | None = None         # mouth aspect ratio (mouth-open signal)
+    ear: float | None = None  # eye aspect ratio (eyes-open signal)
+    mar: float | None = None  # mouth aspect ratio (mouth-open signal)
     neutral_penalty: float | None = None
-    id_sim: float | None = None      # cosine sim to age-matched reference
-    id_margin: float | None = None   # gap to 2nd-best face in same image
-    is_self: bool = False            # passed the identity gate as THE you-face
+    id_sim: float | None = None  # cosine sim to age-matched reference
+    id_margin: float | None = None  # gap to 2nd-best face in same image
+    is_self: bool = False  # passed the identity gate as THE you-face
     passes_pose: bool | None = None
     passes_neutral: bool | None = None
-    composite: float | None = None   # per-bucket selection score
+    composite: float | None = None  # per-bucket selection score
     selected: bool = False
     bucket: str | None = None
 

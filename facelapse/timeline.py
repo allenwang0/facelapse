@@ -11,6 +11,7 @@ into a sliver.
 Label: year large and persistent (the emotionally salient unit), full date
 smaller beneath. January-1 tick marks turn the bar into a readable calendar.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -39,13 +40,17 @@ def _font(size: int, path: str | None):
             continue
     # Fallback to PIL default (low quality bitmap font)
     import sys
-    print("[warn] No TrueType font found; timeline labels will use low-quality default.",
-          file=sys.stderr)
+
+    print(
+        "[warn] No TrueType font found; timeline labels will use low-quality default.",
+        file=sys.stderr,
+    )
     return ImageFont.load_default()
 
 
-def robust_range(dates: list[datetime], confident: list[bool],
-                 pct: tuple[float, float]) -> tuple[float, float]:
+def robust_range(
+    dates: list[datetime], confident: list[bool], pct: tuple[float, float]
+) -> tuple[float, float]:
     """Bar min/max in epoch seconds, from confident dates, percentile-clamped."""
     epochs = np.array([d.timestamp() for d, c in zip(dates, confident) if c and d])
     if epochs.size == 0:
@@ -96,14 +101,13 @@ class TimelineRenderer:
         d.line([(bx0, self.bar_y), (bx1, self.bar_y)], fill=(255, 255, 255, 180), width=2)
 
         # year tick marks + small year labels along the bar
-        for epoch, year in _year_boundaries(self.lo, self.hi):
+        for epoch, _year in _year_boundaries(self.lo, self.hi):
             x = self._x(epoch)
             d.line([(x, self.bar_y - 6), (x, self.bar_y + 6)], fill=(255, 255, 255, 140), width=1)
 
         # marker for the current frame's real date
         mx = self._x(dt.timestamp())
-        d.ellipse([mx - 6, self.bar_y - 6, mx + 6, self.bar_y + 6],
-                  fill=(255, 80, 80, 255))
+        d.ellipse([mx - 6, self.bar_y - 6, mx + 6, self.bar_y + 6], fill=(255, 80, 80, 255))
 
         # label: year primary, date secondary. tilde-prefix if low confidence.
         year_txt = dt.strftime("%Y")
@@ -111,8 +115,12 @@ class TimelineRenderer:
         ty = self.H - self.band_h + int(self.band_h * 0.10)
         d.text((self.pad, ty), year_txt, font=self.year_font, fill=(255, 255, 255, 255))
         yw = d.textlength(year_txt, font=self.year_font)
-        d.text((self.pad + yw + 14, ty + int(self.band_h * 0.16)), date_txt,
-               font=self.date_font, fill=(220, 220, 220, 255))
+        d.text(
+            (self.pad + yw + 14, ty + int(self.band_h * 0.16)),
+            date_txt,
+            font=self.date_font,
+            fill=(220, 220, 220, 255),
+        )
 
         out = Image.alpha_composite(img, overlay).convert("RGB")
         return np.asarray(out)

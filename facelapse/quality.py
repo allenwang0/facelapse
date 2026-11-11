@@ -1,6 +1,7 @@
 """Sharpness and face-size quality signals, computed on the face crop from
 the original-resolution image.
 """
+
 from __future__ import annotations
 
 import cv2

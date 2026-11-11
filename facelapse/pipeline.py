@@ -9,9 +9,9 @@ Every filtering stage logs pass/fail counts. Attrition multiplies across a
 funnel; if you keep 4% of photos you must be able to see WHICH stage ate them.
 Silent starvation is the main failure mode of this kind of pipeline.
 """
+
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -23,11 +23,14 @@ except ImportError:
     def tqdm(iterable, **kwargs):  # type: ignore
         return iterable
 
-from . import ingest, timestamps, quality, pose as pose_mod, neutral as neutral_mod
-from . import dedup, bucketing, align as align_mod, photometric, smoothing, render
+
+from . import align as align_mod
+from . import bucketing, dedup, ingest, photometric, quality, render, smoothing, timestamps
+from . import neutral as neutral_mod
+from . import pose as pose_mod
 from .cache import Cache
 from .config import Config
-from .identity import ReferenceChain, resolve_image, IdOutcome
+from .identity import IdOutcome, ReferenceChain, resolve_image
 from .records import ImageRecord
 
 
@@ -42,15 +45,19 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
     so tests can stub them."""
     if detector is None:
         from .detection import FaceDetector
+
         detector = FaceDetector()
     if mesh is None:
         try:
             from .landmarks import FaceMesh
+
             mesh = FaceMesh()
         except RuntimeError:
             mesh = None
-            print("[warn] mediapipe absent: dense landmarks off; "
-                  "neutral scoring and nasion alignment degraded.")
+            print(
+                "[warn] mediapipe absent: dense landmarks off; "
+                "neutral scoring and nasion alignment degraded."
+            )
 
     cache = Cache(cfg.cache_db)
     # Count total images first for progress bar
@@ -63,8 +70,11 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
         try:
             rgb = ingest.decode(path)
         except Exception as e:
-            cache.upsert_image(ImageRecord(ch, str(path), 0, 0,
-                               timestamps.resolve(path), decoded_ok=False, error=str(e)))
+            cache.upsert_image(
+                ImageRecord(
+                    ch, str(path), 0, 0, timestamps.resolve(path), decoded_ok=False, error=str(e)
+                )
+            )
             continue
         ts = timestamps.resolve(path)
         faces = detector.analyze(rgb, ch)
@@ -75,7 +85,7 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
                 crop = _crop(rgb, f.bbox)
                 dense = mesh.landmarks(crop) if crop.size else None
                 if dense is not None:
-                    dense[:, 0] += max(0, int(f.bbox[0]))   # back to image coords
+                    dense[:, 0] += max(0, int(f.bbox[0]))  # back to image coords
                     dense[:, 1] += max(0, int(f.bbox[1]))
                     f.dense = dense
         cache.upsert_image(ImageRecord(ch, str(path), rgb.shape[1], rgb.shape[0], ts, faces=faces))
@@ -123,7 +133,7 @@ def score(cfg: Config, au_scorer=None) -> None:
                 f.neutral_penalty is not None and f.neutral_penalty <= cfg.neutral_max_penalty
             )
         else:
-            f.passes_neutral = None   # unknown; select stage will treat conservatively
+            f.passes_neutral = None  # unknown; select stage will treat conservatively
         if f.passes_pose:
             kept_pose += 1
         if f.passes_neutral:
@@ -140,9 +150,13 @@ def select(cfg: Config) -> list:
     self_faces = cache.all_faces(only_self=True)
 
     # gates: pose required; neutral required if known, allowed-through if unknown
-    gated = [f for f in self_faces
-             if f.passes_pose and (f.passes_neutral in (True, None))
-             and (f.interocular_px or 0) >= cfg.min_interocular_px]
+    gated = [
+        f
+        for f in self_faces
+        if f.passes_pose
+        and (f.passes_neutral in (True, None))
+        and (f.interocular_px or 0) >= cfg.min_interocular_px
+    ]
     _log("size+gates", len(gated), len(self_faces))
 
     # dedup across the gated set (re-saved copies)
@@ -163,7 +177,8 @@ def select(cfg: Config) -> list:
     ts_of = {f.content_hash: cache.image_ts(f.content_hash).value for f in deduped}
     ts_of = {k: v for k, v in ts_of.items() if v is not None}
     winners = bucketing.select_best_per_bucket(
-        [f for f in deduped if f.content_hash in ts_of], ts_of, cfg)
+        [f for f in deduped if f.content_hash in ts_of], ts_of, cfg
+    )
     _log("bucket-winners", len(winners), len(deduped))
 
     cache.update_faces(winners)
@@ -192,20 +207,33 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
 
     # Second pass: decode, warp, build frames (streaming - don't accumulate raw images)
     frames, dates, confident, rows = [], [], [], []
-    for f, p in tqdm(list(zip(winners, params_seq)), desc="Warping frames", unit="frame", disable=len(winners) < 20):
+    for f, p in tqdm(
+        list(zip(winners, params_seq)),
+        desc="Warping frames",
+        unit="frame",
+        disable=len(winners) < 20,
+    ):
         rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
         frames.append(align_mod.warp(rgb, p, cfg))
         ts = ts_of[f.content_hash]
         dates.append(ts.value)
         confident.append(ts.confidence == "high")
-        rows.append({
-            "content_hash": f.content_hash, "path": cache.image_path(f.content_hash),
-            "date": ts.value.isoformat() if ts.value else None,
-            "date_source": ts.source.name, "date_confidence": ts.confidence,
-            "bucket": f.bucket, "composite": f.composite,
-            "yaw": f.yaw, "pitch": f.pitch, "neutral_penalty": f.neutral_penalty,
-            "id_sim": f.id_sim, "id_margin": f.id_margin,
-        })
+        rows.append(
+            {
+                "content_hash": f.content_hash,
+                "path": cache.image_path(f.content_hash),
+                "date": ts.value.isoformat() if ts.value else None,
+                "date_source": ts.source.name,
+                "date_confidence": ts.confidence,
+                "bucket": f.bucket,
+                "composite": f.composite,
+                "yaw": f.yaw,
+                "pitch": f.pitch,
+                "neutral_penalty": f.neutral_penalty,
+                "id_sim": f.id_sim,
+                "id_margin": f.id_margin,
+            }
+        )
 
     if cfg.photometric_mode != "none" and frames:
         ref = photometric.choose_reference(frames)

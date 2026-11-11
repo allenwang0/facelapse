@@ -8,6 +8,7 @@ and exposure doesn't make the video strobe. Two modes:
 The reference is the median-luminance frame of the selected set, chosen so we
 normalize toward a typical frame rather than an extreme one.
 """
+
 from __future__ import annotations
 
 import cv2

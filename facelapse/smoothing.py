@@ -6,6 +6,7 @@ parameters rather than to camera motion.
 Angle is unwrapped before averaging so a wrap across +/-pi doesn't produce a
 spurious spin.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,5 +31,7 @@ def smooth_params(seq: list[SimilarityParams], window: int) -> list[SimilarityPa
         return np.convolve(ap, kernel, mode="valid")
 
     a2, s2, x2, y2 = ma(angles), ma(scales), ma(txs), ma(tys)
-    return [SimilarityParams(float(a), float(s), float(x), float(y))
-            for a, s, x, y in zip(a2, s2, x2, y2)]
+    return [
+        SimilarityParams(float(a), float(s), float(x), float(y))
+        for a, s, x, y in zip(a2, s2, x2, y2)
+    ]

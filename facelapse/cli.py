@@ -10,14 +10,15 @@ Typical flow:
     facelapse render                               # video + manifest
     facelapse run ./my_photos                      # analyze+score+select+render in one go
 """
+
 from __future__ import annotations
 
 import argparse
 import sys
 from pathlib import Path
 
-from .config import Config
 from . import pipeline
+from .config import Config
 
 
 def _cfg(args) -> Config:
@@ -28,9 +29,10 @@ def _cfg(args) -> Config:
 
 
 def cmd_seed(args):
-    from .cache import Cache
     from . import ingest, timestamps
+    from .cache import Cache
     from .detection import FaceDetector
+
     cfg = _cfg(args)
     cache = Cache(cfg.cache_db)
     det = FaceDetector()
@@ -57,6 +59,7 @@ def cmd_score(args):
     if not args.no_au:
         try:
             from .neutral import AUScorer
+
             au = AUScorer()
         except RuntimeError as e:
             print(f"[warn] {e}")
@@ -69,9 +72,11 @@ def cmd_select(args):
 
 def cmd_review(args):
     from pathlib import Path
-    from .cache import Cache
+
     from . import ingest
+    from .cache import Cache
     from .review import write_review
+
     cfg = _cfg(args)
     cache = Cache(cfg.cache_db)
     winners = cache.all_faces(only_selected=True)
@@ -89,6 +94,7 @@ def cmd_render(args):
     rejects = set()
     if args.rejects and Path(args.rejects).exists():
         import json
+
         rejects = set(json.loads(Path(args.rejects).read_text()))
     result = pipeline.render_final(cfg, rejects=rejects)
     print(f"[render] {result['video']}")
@@ -102,6 +108,7 @@ def cmd_run(args):
     if not args.no_au:
         try:
             from .neutral import AUScorer
+
             au = AUScorer()
         except RuntimeError:
             pass
@@ -117,13 +124,29 @@ def main(argv=None):
     p.add_argument("--grain", choices=["day", "week", "month"], help="override bucket grain")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("seed"); s.add_argument("action", choices=["add"]); s.add_argument("paths", nargs="+"); s.set_defaults(func=cmd_seed)
-    s = sub.add_parser("analyze"); s.add_argument("folder"); s.add_argument("--force", action="store_true"); s.set_defaults(func=cmd_analyze)
-    s = sub.add_parser("score"); s.add_argument("--no-au", action="store_true"); s.set_defaults(func=cmd_score)
-    s = sub.add_parser("select"); s.set_defaults(func=cmd_select)
-    s = sub.add_parser("review"); s.set_defaults(func=cmd_review)
-    s = sub.add_parser("render"); s.add_argument("--rejects", help="JSON list of content_hashes to drop"); s.set_defaults(func=cmd_render)
-    s = sub.add_parser("run"); s.add_argument("folder"); s.add_argument("--force", action="store_true"); s.add_argument("--no-au", action="store_true"); s.set_defaults(func=cmd_run)
+    s = sub.add_parser("seed")
+    s.add_argument("action", choices=["add"])
+    s.add_argument("paths", nargs="+")
+    s.set_defaults(func=cmd_seed)
+    s = sub.add_parser("analyze")
+    s.add_argument("folder")
+    s.add_argument("--force", action="store_true")
+    s.set_defaults(func=cmd_analyze)
+    s = sub.add_parser("score")
+    s.add_argument("--no-au", action="store_true")
+    s.set_defaults(func=cmd_score)
+    s = sub.add_parser("select")
+    s.set_defaults(func=cmd_select)
+    s = sub.add_parser("review")
+    s.set_defaults(func=cmd_review)
+    s = sub.add_parser("render")
+    s.add_argument("--rejects", help="JSON list of content_hashes to drop")
+    s.set_defaults(func=cmd_render)
+    s = sub.add_parser("run")
+    s.add_argument("folder")
+    s.add_argument("--force", action="store_true")
+    s.add_argument("--no-au", action="store_true")
+    s.set_defaults(func=cmd_run)
 
     args = p.parse_args(argv)
     return args.func(args)

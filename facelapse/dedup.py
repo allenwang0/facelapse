@@ -3,11 +3,12 @@ files; this catches re-saved / re-compressed copies that carry different
 bytes (and sometimes different timestamps) but the same picture, so one
 physical photo can't sneak into two buckets.
 """
+
 from __future__ import annotations
 
+import imagehash
 import numpy as np
 from PIL import Image
-import imagehash
 
 
 def phash(rgb: np.ndarray) -> imagehash.ImageHash:

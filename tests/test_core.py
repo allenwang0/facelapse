@@ -1,5 +1,6 @@
 """Tests for everything that runs WITHOUT the ML model deps. Encodes WHY
 each behavior matters, not just what it does (per the project's test rule)."""
+
 from __future__ import annotations
 
 import sys
@@ -10,19 +11,25 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from facelapse.config import Config
-from facelapse.records import Face, Timestamp, TsSource, ImageRecord
-from facelapse.cache import Cache
-from facelapse import align as align_mod, smoothing, bucketing, dedup, photometric, timestamps
+from facelapse import align as align_mod
+from facelapse import bucketing, dedup, photometric, smoothing, timestamps
 from facelapse.align import SimilarityParams
+from facelapse.cache import Cache
+from facelapse.config import Config
+from facelapse.records import Face, ImageRecord, Timestamp, TsSource
 
 
 def _face(**kw) -> Face:
     base = dict(
-        content_hash="h", face_id=0, bbox=np.array([0, 0, 100, 100], np.float32),
+        content_hash="h",
+        face_id=0,
+        bbox=np.array([0, 0, 100, 100], np.float32),
         kps=np.array([[30, 40], [70, 40], [50, 60], [35, 80], [65, 80]], np.float32),
         embedding=np.ones(512, np.float32) / np.sqrt(512),
-        yaw=0.0, pitch=0.0, roll=0.0, det_score=0.9,
+        yaw=0.0,
+        pitch=0.0,
+        roll=0.0,
+        det_score=0.9,
     )
     base.update(kw)
     return Face(**base)
@@ -47,7 +54,9 @@ def test_alignment_places_eyes_at_canonical_positions():
     # WHY: the entire "comparable over time" claim rests on eyes landing at
     # fixed canonical pixels every frame. This asserts the invariant.
     cfg = Config()
-    f = _face(kps=np.array([[100, 200], [180, 210], [140, 240], [110, 280], [170, 285]], np.float32))
+    f = _face(
+        kps=np.array([[100, 200], [180, 210], [140, 240], [110, 280], [170, 285]], np.float32)
+    )
     p = align_mod.estimate(f, cfg)
     M = p.matrix()
     le = M @ np.array([f.kps[0][0], f.kps[0][1], 1.0])
@@ -62,13 +71,14 @@ def test_alignment_corrects_roll():
     # eyes tilted 30 degrees
     ang = np.deg2rad(30)
     c, s = np.cos(ang), np.sin(ang)
-    le = np.array([100, 200]); off = np.array([80 * c, 80 * s])
+    le = np.array([100, 200])
+    off = np.array([80 * c, 80 * s])
     f = _face(kps=np.array([le, le + off, le + [40, 60], le + [10, 90], le + [60, 92]], np.float32))
     p = align_mod.estimate(f, cfg)
     M = p.matrix()
     le2 = M @ np.array([f.kps[0][0], f.kps[0][1], 1.0])
     re2 = M @ np.array([f.kps[1][0], f.kps[1][1], 1.0])
-    assert abs(le2[1] - re2[1]) < 1.0   # eyes on the same horizontal line
+    assert abs(le2[1] - re2[1]) < 1.0  # eyes on the same horizontal line
 
 
 def test_smoothing_reduces_jitter_preserves_drift():
@@ -95,10 +105,26 @@ def test_bucket_key_grains():
 def test_bucket_selection_picks_highest_composite():
     # WHY: within a bucket the sharpest/most-frontal/most-neutral must win.
     cfg = Config()
-    good = _face(content_hash="g", sharpness=500, interocular_px=120,
-                 neutral_penalty=0.0, id_sim=0.6, ear=0.3, yaw=0, pitch=0)
-    bad = _face(content_hash="b", sharpness=10, interocular_px=45,
-                neutral_penalty=0.9, id_sim=0.4, ear=0.3, yaw=18, pitch=18)
+    good = _face(
+        content_hash="g",
+        sharpness=500,
+        interocular_px=120,
+        neutral_penalty=0.0,
+        id_sim=0.6,
+        ear=0.3,
+        yaw=0,
+        pitch=0,
+    )
+    bad = _face(
+        content_hash="b",
+        sharpness=10,
+        interocular_px=45,
+        neutral_penalty=0.9,
+        id_sim=0.4,
+        ear=0.3,
+        yaw=18,
+        pitch=18,
+    )
     ts = {"g": datetime(2021, 5, 17), "b": datetime(2021, 5, 18)}  # same ISO week
     winners = bucketing.select_best_per_bucket([good, bad], ts, cfg)
     assert len(winners) == 1 and winners[0].content_hash == "g"
@@ -107,7 +133,8 @@ def test_bucket_selection_picks_highest_composite():
 def test_dedup_groups_near_duplicates():
     # WHY: a re-saved copy must not occupy a second bucket slot.
     base = (np.random.default_rng(0).random((64, 64, 3)) * 255).astype(np.uint8)
-    noisy = base.copy(); noisy[0, 0] = 255 - noisy[0, 0]
+    noisy = base.copy()
+    noisy[0, 0] = 255 - noisy[0, 0]
     hashes = {"a": dedup.phash(base), "b": dedup.phash(noisy)}
     canon = dedup.group_duplicates(hashes, max_hamming=6)
     assert canon["a"] == canon["b"]
@@ -123,11 +150,15 @@ def test_photometric_exposure_matches_luminance():
 
 def test_cache_roundtrip_embeddings():
     # WHY: embeddings survive the BLOB round-trip bit-exact, or identity breaks.
-    import tempfile, os
+    import os
+    import tempfile
+
     tmp = tempfile.mkdtemp()
     cache = Cache(os.path.join(tmp, "t.db"))
     f = _face(embedding=np.random.default_rng(1).random(512).astype(np.float32))
-    rec = ImageRecord("h", "/x.jpg", 100, 100, Timestamp(datetime(2021, 1, 1), TsSource.EXIF_ORIGINAL), faces=[f])
+    rec = ImageRecord(
+        "h", "/x.jpg", 100, 100, Timestamp(datetime(2021, 1, 1), TsSource.EXIF_ORIGINAL), faces=[f]
+    )
     cache.upsert_image(rec)
     got = cache.all_faces()[0]
     assert np.allclose(got.embedding, f.embedding, atol=1e-6)

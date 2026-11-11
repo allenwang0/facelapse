@@ -6,6 +6,7 @@ neutral backstops (EAR/MAR) and the optional nasion alignment point.
 # ones, but confirm against your installed mediapipe version by plotting
 # them on one of your own faces before trusting EAR/MAR thresholds.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,7 +15,7 @@ import numpy as np
 LEFT_EYE = dict(outer=33, inner=133, top=159, bottom=145)
 RIGHT_EYE = dict(outer=362, inner=263, top=386, bottom=374)
 MOUTH = dict(left=61, right=291, top=13, bottom=14)
-NASION = 168   # nose-bridge point between the eyes; stable across expression
+NASION = 168  # nose-bridge point between the eyes; stable across expression
 
 
 class FaceMesh:
@@ -27,7 +28,9 @@ class FaceMesh:
             ) from e
         self._mp = mp
         self.mesh = mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=True, max_num_faces=1, refine_landmarks=True,
+            static_image_mode=True,
+            max_num_faces=1,
+            refine_landmarks=True,
         )
 
     def landmarks(self, rgb_crop: np.ndarray) -> np.ndarray | None:
@@ -48,10 +51,12 @@ def _dist(a: np.ndarray, b: np.ndarray) -> float:
 
 def eye_aspect_ratio(dense: np.ndarray) -> float:
     """Mean EAR across both eyes. Low => closed/blink."""
+
     def ear(e):
         vertical = _dist(dense[e["top"]], dense[e["bottom"]])
         horizontal = _dist(dense[e["outer"]], dense[e["inner"]])
         return vertical / horizontal if horizontal > 1e-6 else 0.0
+
     return 0.5 * (ear(LEFT_EYE) + ear(RIGHT_EYE))
 
 

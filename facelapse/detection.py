@@ -16,6 +16,7 @@ corrupts alignment and pose filtering silently:
      stable across versions. Confirm on a known left-turned test face that
      the value you treat as yaw actually moves with left/right rotation.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -42,16 +43,22 @@ class FaceDetector:
         dets = self.app.get(bgr)
         faces: list[Face] = []
         for i, d in enumerate(dets):
-            kps = np.asarray(d.kps, dtype=np.float32)            # (5,2) # VERIFY order
+            kps = np.asarray(d.kps, dtype=np.float32)  # (5,2) # VERIFY order
             emb = np.asarray(d.normed_embedding, dtype=np.float32)  # L2-normalized
-            yaw, pitch, roll = _pose_triple(d)                    # degrees # VERIFY
-            faces.append(Face(
-                content_hash=content_hash, face_id=i,
-                bbox=np.asarray(d.bbox, dtype=np.float32),
-                kps=kps, embedding=emb,
-                yaw=float(yaw), pitch=float(pitch), roll=float(roll),
-                det_score=float(d.det_score),
-            ))
+            yaw, pitch, roll = _pose_triple(d)  # degrees # VERIFY
+            faces.append(
+                Face(
+                    content_hash=content_hash,
+                    face_id=i,
+                    bbox=np.asarray(d.bbox, dtype=np.float32),
+                    kps=kps,
+                    embedding=emb,
+                    yaw=float(yaw),
+                    pitch=float(pitch),
+                    roll=float(roll),
+                    det_score=float(d.det_score),
+                )
+            )
         return faces
 
     def embed(self, rgb: np.ndarray) -> np.ndarray | None:
@@ -60,8 +67,7 @@ class FaceDetector:
         if not faces:
             return None
         # pick the largest face as the seed subject
-        faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
-                   reverse=True)
+        faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
         return faces[0].embedding
 
 
@@ -78,5 +84,5 @@ def _pose_triple(det) -> tuple[float, float, float]:
     pose = np.asarray(pose, dtype=np.float32).ravel()
     if pose.shape[0] < 3:
         return float("nan"), float("nan"), float("nan")
-    pitch, yaw, roll = pose[0], pose[1], pose[2]   # VERIFY this ordering
+    pitch, yaw, roll = pose[0], pose[1], pose[2]  # VERIFY this ordering
     return float(yaw), float(pitch), float(roll)

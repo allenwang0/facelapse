@@ -6,14 +6,16 @@ The composite score is where pose-variance minimization, neutrality,
 sharpness, resolution, and identity confidence trade off. Weights are a
 starting point; tune against the review page.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
 
 import numpy as np
 
-from .records import Face
+from .config import Config
 from .pose import frontality_score
+from .records import Face
 
 
 def bucket_key(dt: datetime, grain: str) -> str:
@@ -26,29 +28,34 @@ def bucket_key(dt: datetime, grain: str) -> str:
     return f"{iso[0]}-W{iso[1]:02d}"
 
 
-def composite_score(f: Face, cfg, sharp_ref: float) -> float:
+def composite_score(f: Face, cfg: Config, sharp_ref: float) -> float:
     """Blend of the quality axes, each roughly normalized to [0,1].
     sharp_ref: a high-percentile sharpness across the set, used to scale the
     unbounded Laplacian variance into [0,1]."""
     front = frontality_score(f, cfg.max_abs_yaw_deg, cfg.max_abs_pitch_deg)
-    res = min(1.0, (f.interocular_px or 0.0) / max(cfg.min_interocular_px * cfg.resolution_scale_factor, 1.0))
+    res = min(
+        1.0,
+        (f.interocular_px or 0.0) / max(cfg.min_interocular_px * cfg.resolution_scale_factor, 1.0),
+    )
     sharp = min(1.0, (f.sharpness or 0.0) / sharp_ref) if sharp_ref > 0 else 0.0
     neutral = 1.0 - min(1.0, (f.neutral_penalty or 0.0) / max(cfg.neutral_max_penalty, 1e-6))
     ident = float(np.clip((f.id_sim or 0.0), 0.0, 1.0))
     eyes = 1.0 if (f.ear is None or f.ear >= cfg.ear_closed_below) else 0.0
 
-    return (
-        cfg.score_weight_frontality * front +
-        cfg.score_weight_neutral * neutral +
-        cfg.score_weight_sharpness * sharp +
-        cfg.score_weight_resolution * res +
-        cfg.score_weight_identity * ident +
-        cfg.score_weight_eyes_open * eyes
+    return float(
+        cfg.score_weight_frontality * front
+        + cfg.score_weight_neutral * neutral
+        + cfg.score_weight_sharpness * sharp
+        + cfg.score_weight_resolution * res
+        + cfg.score_weight_identity * ident
+        + cfg.score_weight_eyes_open * eyes
     )
 
 
 def select_best_per_bucket(
-    faces: list[Face], ts_of: dict[str, datetime], cfg,
+    faces: list[Face],
+    ts_of: dict[str, datetime],
+    cfg: Config,
 ) -> list[Face]:
     """Given self-faces that already passed pose+neutral gates, assign buckets
     and return the winner per bucket (marks .selected, .bucket, .composite)."""
@@ -61,13 +68,13 @@ def select_best_per_bucket(
     for f in faces:
         dt = ts_of.get(f.content_hash)
         if dt is None:
-            continue   # untrustworthy/absent date -> excluded from final cut
+            continue  # untrustworthy/absent date -> excluded from final cut
         f.bucket = bucket_key(dt, cfg.bucket_grain)
         f.composite = composite_score(f, cfg, sharp_ref)
         by_bucket.setdefault(f.bucket, []).append(f)
 
     winners: list[Face] = []
-    for bucket, group in by_bucket.items():
+    for group in by_bucket.values():
         group.sort(key=lambda x: x.composite or 0.0, reverse=True)
         best = group[0]
         best.selected = True
