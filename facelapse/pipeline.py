@@ -65,12 +65,21 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
     image_paths = list(ingest.iter_images(folder, cfg.image_exts))
     n_img = n_face = 0
     for path in tqdm(image_paths, desc="Analyzing images", unit="img"):
-        ch = ingest.content_hash(path)
+        try:
+            ch = ingest.content_hash(path)
+        except ValueError as e:
+            ch = ingest.path_key(path)
+            cache.upsert_image(
+                ImageRecord(
+                    ch, str(path), 0, 0, timestamps.resolve(path), decoded_ok=False, error=str(e)
+                )
+            )
+            continue
         if cache.has_image(ch) and not force:
             continue
         try:
             rgb = ingest.decode(path)
-        except Exception as e:
+        except ingest.DECODE_ERRORS as e:
             cache.upsert_image(
                 ImageRecord(
                     ch, str(path), 0, 0, timestamps.resolve(path), decoded_ok=False, error=str(e)

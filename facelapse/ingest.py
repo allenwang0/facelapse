@@ -45,6 +45,15 @@ def content_hash(path: Path, max_size_mb: int = 200) -> str:
     return h.hexdigest()
 
 
+def path_key(path: Path) -> str:
+    """Cache key for a file whose bytes were not hashed (over the size limit)."""
+    st = path.stat()
+    return "unhashed:" + hashlib.sha256(f"{path.resolve()}|{st.st_size}".encode()).hexdigest()
+
+
+DECODE_ERRORS = (OSError, ValueError, RuntimeError, Image.DecompressionBombError)
+
+
 def iter_images(folder: str, exts: tuple[str, ...]) -> Iterator[Path]:
     """Enumerate images in folder, with path traversal protection."""
     root = Path(folder).resolve()  # resolve symlinks and make absolute
