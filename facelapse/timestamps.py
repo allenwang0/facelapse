@@ -69,14 +69,17 @@ def _from_takeout_sidecar(path: Path) -> datetime | None:
 def _from_exif(path: Path) -> tuple[datetime | None, TsSource]:
     try:
         exif = Image.open(path).getexif()
-    except Exception:
+    except OSError:
         return None, TsSource.NONE
-    if _ORIGINAL and _ORIGINAL in exif:
-        dt = _parse_exif_dt(str(exif[_ORIGINAL]))
+    # the capture dates live in the Exif sub-IFD, not in IFD0
+    tags = dict(exif)
+    tags.update(exif.get_ifd(ExifTags.IFD.Exif))
+    if _ORIGINAL and _ORIGINAL in tags:
+        dt = _parse_exif_dt(str(tags[_ORIGINAL]))
         if dt:
             return dt, TsSource.EXIF_ORIGINAL
-    if _DIGITIZED and _DIGITIZED in exif:
-        dt = _parse_exif_dt(str(exif[_DIGITIZED]))
+    if _DIGITIZED and _DIGITIZED in tags:
+        dt = _parse_exif_dt(str(tags[_DIGITIZED]))
         if dt:
             return dt, TsSource.EXIF_DIGITIZED
     return None, TsSource.NONE

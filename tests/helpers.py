@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import numpy as np
+from PIL import Image
 
 from facelapse.records import Face
 
@@ -38,10 +40,27 @@ def embedding_with_similarity(ref: np.ndarray, sim: float, seed: int) -> np.ndar
     return unit(sim * ref + np.sqrt(max(0.0, 1 - sim**2)) * u)
 
 
-def write_image(path: Any, seed: int, size: tuple[int, int] = (160, 160)) -> None:
-    """Noise image distinct enough per seed that pHash never groups two."""
-    from PIL import Image
+def exif_with_date(when: datetime, offset: str | None = None) -> Image.Exif:
+    exif = Image.Exif()
+    ifd = exif.get_ifd(0x8769)
+    ifd[0x9003] = when.strftime("%Y:%m:%d %H:%M:%S")  # DateTimeOriginal
+    if offset:
+        ifd[0x9011] = offset  # OffsetTimeOriginal
+    return exif
 
+
+def write_image(
+    path: Any,
+    seed: int,
+    size: tuple[int, int] = (160, 160),
+    exif_date: datetime | None = None,
+) -> None:
+    """Noise image distinct enough per seed that pHash never groups two.
+    exif_date writes DateTimeOriginal (JPEG only)."""
     rng = np.random.default_rng(seed)
     small = rng.integers(0, 255, (8, 8, 3), dtype=np.uint8)
-    Image.fromarray(small).resize(size, Image.Resampling.NEAREST).save(path)
+    img = Image.fromarray(small).resize(size, Image.Resampling.NEAREST)
+    if exif_date is not None:
+        img.save(path, exif=exif_with_date(exif_date), quality=95)
+    else:
+        img.save(path)
