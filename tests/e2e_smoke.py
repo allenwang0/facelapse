@@ -1,9 +1,10 @@
-"""End-to-end smoke test with the ML stages STUBBED. Proves the orchestration,
+"""End-to-end smoke test with the ML stages STUBBED. Exercises the orchestration,
 cache, identity margin logic, alignment, bucketing, photometric, smoothing,
 timeline overlay, and encode all execute and yield a real mp4 + manifest +
 review page. The ML models are the only unproven parts and they are isolated
 behind these stubs.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,10 +18,10 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from facelapse.config import Config
-from facelapse.records import Face
 from facelapse import pipeline
 from facelapse.cache import Cache
+from facelapse.config import Config
+from facelapse.records import Face
 
 
 def _dense_neutral(cx: float, cy: float, scale: float) -> np.ndarray:
@@ -29,7 +30,7 @@ def _dense_neutral(cx: float, cy: float, scale: float) -> np.ndarray:
     d = np.zeros((478, 2), np.float32)
     d[:] = [cx, cy]
     # eyes
-    d[33] = [cx - 40 * scale, cy - 20 * scale]   # L outer
+    d[33] = [cx - 40 * scale, cy - 20 * scale]  # L outer
     d[133] = [cx - 12 * scale, cy - 20 * scale]  # L inner
     d[159] = [cx - 26 * scale, cy - 26 * scale]  # L top
     d[145] = [cx - 26 * scale, cy - 16 * scale]  # L bottom (open eye => gap)
@@ -42,13 +43,14 @@ def _dense_neutral(cx: float, cy: float, scale: float) -> np.ndarray:
     d[291] = [cx + 22 * scale, cy + 40 * scale]
     d[13] = [cx, cy + 38 * scale]
     d[14] = [cx, cy + 42 * scale]
-    d[168] = [cx, cy - 24 * scale]               # nasion
+    d[168] = [cx, cy - 24 * scale]  # nasion
     return d
 
 
 class StubDetector:
     """Returns preset faces per image. 'me_*' images get an embedding near the
     seed; 'other_*' images get a distant embedding (a lookalike-ish sibling)."""
+
     def __init__(self):
         rng = np.random.default_rng(7)
         self.me = _norm(rng.random(512))
@@ -62,19 +64,49 @@ class StubDetector:
         # subject face (you), roughly frontal, centered
         emb = self.me if name.startswith("me") else _norm(np.random.default_rng(1).random(512))
         yaw = 5.0 if "turn" not in name else 30.0
-        f = Face(content_hash=content_hash, face_id=0,
-                 bbox=np.array([cx - 90, cy - 110, cx + 90, cy + 110], np.float32),
-                 kps=np.array([[cx - 35, cy - 20], [cx + 35, cy - 20], [cx, cy + 5],
-                               [cx - 22, cy + 40], [cx + 22, cy + 40]], np.float32),
-                 embedding=emb, yaw=yaw, pitch=3.0, roll=0.0, det_score=0.95)
+        f = Face(
+            content_hash=content_hash,
+            face_id=0,
+            bbox=np.array([cx - 90, cy - 110, cx + 90, cy + 110], np.float32),
+            kps=np.array(
+                [
+                    [cx - 35, cy - 20],
+                    [cx + 35, cy - 20],
+                    [cx, cy + 5],
+                    [cx - 22, cy + 40],
+                    [cx + 22, cy + 40],
+                ],
+                np.float32,
+            ),
+            embedding=emb,
+            yaw=yaw,
+            pitch=3.0,
+            roll=0.0,
+            det_score=0.95,
+        )
         faces.append(f)
         # add a sibling face in "group" images to exercise the margin gate
         if "group" in name:
-            g = Face(content_hash=content_hash, face_id=1,
-                     bbox=np.array([cx + 60, cy - 80, cx + 200, cy + 120], np.float32),
-                     kps=np.array([[cx + 100, cy - 20], [cx + 150, cy - 20], [cx + 125, cy + 5],
-                                   [cx + 108, cy + 40], [cx + 142, cy + 40]], np.float32),
-                     embedding=self.sib, yaw=8.0, pitch=2.0, roll=0.0, det_score=0.9)
+            g = Face(
+                content_hash=content_hash,
+                face_id=1,
+                bbox=np.array([cx + 60, cy - 80, cx + 200, cy + 120], np.float32),
+                kps=np.array(
+                    [
+                        [cx + 100, cy - 20],
+                        [cx + 150, cy - 20],
+                        [cx + 125, cy + 5],
+                        [cx + 108, cy + 40],
+                        [cx + 142, cy + 40],
+                    ],
+                    np.float32,
+                ),
+                embedding=self.sib,
+                yaw=8.0,
+                pitch=2.0,
+                roll=0.0,
+                det_score=0.9,
+            )
             faces.append(g)
         return faces
 
@@ -111,13 +143,14 @@ def _make_image(path: Path, seed: int):
     Image.fromarray(base).save(path, quality=90)
 
 
-def main():
-    work = Path(tempfile.mkdtemp())
-    photos = work / "photos"; photos.mkdir()
+def test_smoke_pipeline(tmp_path: Path) -> None:
+    work = tmp_path
+    photos = work / "photos"
+    photos.mkdir()
     cfg = Config()
     cfg.cache_db = str(work / "cache.db")
     cfg.out_dir = str(work / "out")
-    cfg.id_t_abs = 0.2      # relaxed for synthetic embeddings
+    cfg.id_t_abs = 0.2  # relaxed for synthetic embeddings
     cfg.id_margin = 0.05
     cfg.min_interocular_px = 20.0
     cfg.bucket_grain = "month"
@@ -127,7 +160,7 @@ def main():
     # one "turned" (should fail pose), one "other" (not me).
     plan = [
         ("me_2019", datetime(2019, 3, 10)),
-        ("me_2019b", datetime(2019, 3, 12)),   # same month -> dedup/bucket competition
+        ("me_2019b", datetime(2019, 3, 12)),  # same month -> dedup/bucket competition
         ("me_group_2020", datetime(2020, 6, 1)),
         ("me_2021", datetime(2021, 9, 15)),
         ("me_turn_2022", datetime(2022, 1, 5)),
@@ -135,7 +168,9 @@ def main():
         ("me_2023", datetime(2023, 11, 20)),
     ]
     import os
+
     from facelapse import ingest
+
     for i, (name, dt) in enumerate(plan):
         p = photos / f"{name}.jpg"
         _make_image(p, seed=i)
@@ -151,11 +186,12 @@ def main():
     cache.close()
 
     pipeline.analyze(str(photos), cfg, detector=det, mesh=mesh, force=True)
-    pipeline.score(cfg, au_scorer=None)   # geometry-only neutral
-    winners = pipeline.select(cfg)
+    pipeline.score(cfg, au_scorer=None)  # geometry-only neutral
+    pipeline.select(cfg)
     result = pipeline.render_final(cfg)
 
-    video = Path(result["video"]); manifest = json.loads(Path(result["manifest"]).read_text())
+    video = Path(result["video"])
+    manifest = json.loads(Path(result["manifest"]).read_text())
     assert video.exists() and video.stat().st_size > 0, "no video produced"
     print(f"\nOK: video {video.stat().st_size} bytes, {manifest['n_frames']} frames")
     print("selected dates:", [r["date"][:10] for r in manifest["frames"]])
@@ -169,4 +205,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_smoke_pipeline(Path(tempfile.mkdtemp()))
