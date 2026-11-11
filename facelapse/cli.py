@@ -71,7 +71,7 @@ def cmd_score(args):
 
 
 def cmd_select(args):
-    pipeline.select(_cfg(args))
+    pipeline.select(_cfg(args), allow_mtime_dates=args.allow_mtime_dates)
 
 
 def cmd_review(args):
@@ -125,41 +125,50 @@ def cmd_run(args):
         except RuntimeError:
             pass
     pipeline.score(cfg, au_scorer=au)
-    pipeline.select(cfg)
+    pipeline.select(cfg, allow_mtime_dates=args.allow_mtime_dates)
     result = pipeline.render_final(cfg)
     print(f"[done] {result['video']}")
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="facelapse")
-    p.add_argument("--config", help="path to config JSON")
-    p.add_argument("--grain", choices=["day", "week", "month"], help="override bucket grain")
+    # --config and --grain are accepted before or after the subcommand.
+    # SUPPRESS keeps a subparser's unset copy from overwriting a value given
+    # before the subcommand.
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("--config", default=argparse.SUPPRESS, help="path to config JSON")
+    shared.add_argument(
+        "--grain",
+        choices=["day", "week", "month"],
+        default=argparse.SUPPRESS,
+        help="override bucket grain",
+    )
+    p = argparse.ArgumentParser(prog="facelapse", parents=[shared])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("seed")
+    def command(name, func):
+        s = sub.add_parser(name, parents=[shared])
+        s.set_defaults(func=func)
+        return s
+
+    s = command("seed", cmd_seed)
     s.add_argument("action", choices=["add"])
     s.add_argument("paths", nargs="+")
-    s.set_defaults(func=cmd_seed)
-    s = sub.add_parser("analyze")
+    s = command("analyze", cmd_analyze)
     s.add_argument("folder")
     s.add_argument("--force", action="store_true")
-    s.set_defaults(func=cmd_analyze)
-    s = sub.add_parser("score")
+    s = command("score", cmd_score)
     s.add_argument("--no-au", action="store_true")
     s.add_argument("--apply-review", help="review.json whose promotions to store before scoring")
-    s.set_defaults(func=cmd_score)
-    s = sub.add_parser("select")
-    s.set_defaults(func=cmd_select)
-    s = sub.add_parser("review")
-    s.set_defaults(func=cmd_review)
-    s = sub.add_parser("render")
+    s = command("select", cmd_select)
+    s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
+    command("review", cmd_review)
+    s = command("render", cmd_render)
     s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")
-    s.set_defaults(func=cmd_render)
-    s = sub.add_parser("run")
+    s = command("run", cmd_run)
     s.add_argument("folder")
     s.add_argument("--force", action="store_true")
     s.add_argument("--no-au", action="store_true")
-    s.set_defaults(func=cmd_run)
+    s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
 
     args = p.parse_args(argv)
     return args.func(args)
