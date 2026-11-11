@@ -4,16 +4,20 @@ good as this. A missing trustworthy date is itself a reject signal: it
 correlates with screenshots, memes, and edited re-saves, which is exactly
 the junk you want gone.
 
-Priority: Takeout sidecar JSON > EXIF DateTimeOriginal > EXIF DateTimeDigitized
-> filename pattern > file mtime.
+Priority: EXIF DateTimeOriginal > EXIF DateTimeDigitized > Takeout sidecar
+JSON > filename pattern > file mtime. EXIF is the camera's wall clock, which
+is what the date label should show. The Takeout epoch is UTC; it is shifted
+by EXIF OffsetTimeOriginal when present and otherwise kept in UTC, never
+converted to the zone of the machine running the tool.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import IO, Any
 
 from PIL import ExifTags, Image
 
@@ -22,6 +26,7 @@ from .records import Timestamp, TsSource
 _EXIF_TAG = {v: k for k, v in ExifTags.TAGS.items()}
 _ORIGINAL = _EXIF_TAG.get("DateTimeOriginal")
 _DIGITIZED = _EXIF_TAG.get("DateTimeDigitized")
+_OFFSET_ORIGINAL = _EXIF_TAG.get("OffsetTimeOriginal", 36881)
 
 # Common phone filename stamps. Order matters: most specific first.
 _FILENAME_PATTERNS = [
@@ -41,48 +46,63 @@ def _parse_exif_dt(s: str) -> datetime | None:
     return None
 
 
-def _from_takeout_sidecar(path: Path) -> datetime | None:
+def load_takeout_sidecar(path: Path) -> dict[str, Any] | None:
     """Google Takeout writes a JSON sidecar next to each media file. The
     naming has drifted over the years; try the common variants."""
-    candidates = [
-        path.with_suffix(path.suffix + ".json"),
-        path.with_suffix(path.suffix + ".supplemental-metadata.json"),
-        path.with_name(path.name + ".json"),
-    ]
-    for c in candidates:
-        if not c.exists():
+    for c in takeout_sidecar_names(path.name):
+        sidecar = path.with_name(c)
+        if not sidecar.exists():
             continue
         try:
-            data = json.loads(c.read_text())
-        except Exception:
+            data = json.loads(sidecar.read_text())
+        except (OSError, ValueError):
             continue
-        for key in ("photoTakenTime", "creationTime"):
-            node = data.get(key)
-            if isinstance(node, dict) and "timestamp" in node:
-                try:
-                    return datetime.fromtimestamp(int(node["timestamp"]))
-                except (ValueError, OverflowError, OSError):
-                    pass
+        if isinstance(data, dict):
+            return data
     return None
 
 
-def _from_exif(path: Path) -> tuple[datetime | None, TsSource]:
+def takeout_sidecar_names(name: str) -> list[str]:
+    return [name + ".json", name + ".supplemental-metadata.json"]
+
+
+def _from_takeout(data: dict[str, Any], offset: timedelta | None) -> datetime | None:
+    """Takeout stores a UTC epoch. Shift it by the camera's EXIF offset when
+    known, else keep UTC; never by the zone of the machine running this."""
+    for key in ("photoTakenTime", "creationTime"):
+        node = data.get(key)
+        if isinstance(node, dict) and "timestamp" in node:
+            try:
+                utc = datetime.fromtimestamp(int(node["timestamp"]), timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                continue
+            return (utc + (offset or timedelta(0))).replace(tzinfo=None)
+    return None
+
+
+def _parse_offset(s: object) -> timedelta | None:
+    m = re.fullmatch(r"([+-])(\d{2}):?(\d{2})", str(s).strip())
+    if not m:
+        return None
+    sign = -1 if m.group(1) == "-" else 1
+    return sign * timedelta(hours=int(m.group(2)), minutes=int(m.group(3)))
+
+
+def _from_exif(src: Path | IO[bytes]) -> tuple[datetime | None, TsSource, timedelta | None]:
     try:
-        exif = Image.open(path).getexif()
+        exif = Image.open(src).getexif()
     except OSError:
-        return None, TsSource.NONE
+        return None, TsSource.NONE, None
     # the capture dates live in the Exif sub-IFD, not in IFD0
     tags = dict(exif)
     tags.update(exif.get_ifd(ExifTags.IFD.Exif))
-    if _ORIGINAL and _ORIGINAL in tags:
-        dt = _parse_exif_dt(str(tags[_ORIGINAL]))
-        if dt:
-            return dt, TsSource.EXIF_ORIGINAL
-    if _DIGITIZED and _DIGITIZED in tags:
-        dt = _parse_exif_dt(str(tags[_DIGITIZED]))
-        if dt:
-            return dt, TsSource.EXIF_DIGITIZED
-    return None, TsSource.NONE
+    offset = _parse_offset(tags[_OFFSET_ORIGINAL]) if _OFFSET_ORIGINAL in tags else None
+    for tag, source in ((_ORIGINAL, TsSource.EXIF_ORIGINAL), (_DIGITIZED, TsSource.EXIF_DIGITIZED)):
+        if tag in tags:
+            dt = _parse_exif_dt(str(tags[tag]))
+            if dt:
+                return dt, source, offset
+    return None, TsSource.NONE, offset
 
 
 def _from_filename(path: Path) -> datetime | None:
@@ -107,19 +127,34 @@ def _from_filename(path: Path) -> datetime | None:
 
 
 def resolve(path: Path) -> Timestamp:
-    dt = _from_takeout_sidecar(path)
-    if dt:
-        return Timestamp(dt, TsSource.TAKEOUT_JSON)
+    try:
+        mtime: float | None = path.stat().st_mtime
+    except OSError:
+        mtime = None
+    return resolve_from(path.name, path, load_takeout_sidecar(path), mtime)
 
-    dt, src = _from_exif(path)
+
+def resolve_from(
+    name: str,
+    image: Path | IO[bytes],
+    sidecar: dict[str, Any] | None,
+    mtime: float | None,
+) -> Timestamp:
+    """The ladder itself, independent of where the bytes live (a folder or a
+    Takeout zip member)."""
+    dt, src, offset = _from_exif(image)
     if dt:
         return Timestamp(dt, src)
 
-    dt = _from_filename(path)
+    if sidecar is not None:
+        dt = _from_takeout(sidecar, offset)
+        if dt:
+            return Timestamp(dt, TsSource.TAKEOUT_JSON)
+
+    dt = _from_filename(Path(name))
     if dt:
         return Timestamp(dt, TsSource.FILENAME)
 
-    try:
-        return Timestamp(datetime.fromtimestamp(path.stat().st_mtime), TsSource.MTIME)
-    except OSError:
+    if mtime is None:
         return Timestamp(None, TsSource.NONE)
+    return Timestamp(datetime.fromtimestamp(mtime), TsSource.MTIME)

@@ -5,11 +5,14 @@ camera recorded."""
 
 from __future__ import annotations
 
-from datetime import datetime
+import json
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from facelapse import pipeline, timestamps
 from facelapse.cache import Cache
@@ -79,3 +82,58 @@ def test_exif_original_is_read_from_the_exif_sub_ifd(tmp_path):
 )
 def test_filename_patterns(name, expected):
     assert timestamps._from_filename(Path(name)) == expected
+
+
+@pytest.fixture
+def machine_zone(monkeypatch):
+    def set_zone(tz: str) -> None:
+        monkeypatch.setenv("TZ", tz)
+        time.tzset()
+
+    yield set_zone
+    monkeypatch.undo()
+    time.tzset()
+
+
+TOKYO_0800 = datetime(2021, 5, 17, 8, 0)
+TOKYO_0800_EPOCH = int(datetime(2021, 5, 16, 23, 0, tzinfo=timezone.utc).timestamp())
+
+
+def _takeout_sidecar(photo: Path, epoch: int) -> None:
+    sidecar = photo.with_name(photo.name + ".json")
+    sidecar.write_text(json.dumps({"photoTakenTime": {"timestamp": str(epoch)}}))
+
+
+@pytest.mark.parametrize("zone", ["America/Los_Angeles", "Asia/Tokyo", "UTC"])
+def test_exif_wall_clock_wins_over_takeout_epoch(tmp_path, machine_zone, zone):
+    # WHY: the date label should show the camera's wall clock. Converting the
+    # Takeout epoch into the processing machine's zone moved this Tokyo
+    # morning photo to the previous day when run in Los Angeles.
+    machine_zone(zone)
+    p = tmp_path / "tokyo.jpg"
+    write_image(p, seed=1, exif_date=TOKYO_0800)
+    _takeout_sidecar(p, TOKYO_0800_EPOCH)
+    ts = timestamps.resolve(p)
+    assert ts.value == TOKYO_0800
+    assert ts.source == TsSource.EXIF_ORIGINAL
+
+
+@pytest.mark.parametrize("zone", ["America/Los_Angeles", "Asia/Tokyo"])
+def test_takeout_without_exif_is_utc_regardless_of_machine_zone(tmp_path, machine_zone, zone):
+    machine_zone(zone)
+    p = tmp_path / "stripped.png"
+    write_image(p, seed=1)
+    _takeout_sidecar(p, TOKYO_0800_EPOCH)
+    ts = timestamps.resolve(p)
+    assert ts.source == TsSource.TAKEOUT_JSON
+    assert ts.value == datetime(2021, 5, 16, 23, 0)
+
+
+def test_takeout_uses_exif_offset_when_present(tmp_path):
+    p = tmp_path / "offset_only.jpg"
+    exif = Image.Exif()
+    exif.get_ifd(0x8769)[0x9011] = "+09:00"
+    Image.new("RGB", (8, 8)).save(p, exif=exif)
+    _takeout_sidecar(p, TOKYO_0800_EPOCH)
+    ts = timestamps.resolve(p)
+    assert (ts.value, ts.source) == (TOKYO_0800, TsSource.TAKEOUT_JSON)
