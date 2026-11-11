@@ -203,7 +203,12 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
         params_seq.append(align_mod.estimate(f, cfg))
 
     # Smooth parameters across the sequence
-    params_seq = smoothing.smooth_params(params_seq, cfg.smooth_window)
+    params_seq = smoothing.smooth_params(
+        params_seq,
+        [f.kps[:2] for f in winners],
+        (cfg.left_eye_xy, cfg.right_eye_xy),
+        cfg.smooth_window,
+    )
 
     # Second pass: decode, warp, build frames (streaming - don't accumulate raw images)
     frames, dates, confident, rows = [], [], [], []

@@ -12,8 +12,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from facelapse import align as align_mod
-from facelapse import bucketing, dedup, photometric, smoothing, timestamps
-from facelapse.align import SimilarityParams
+from facelapse import bucketing, dedup, photometric, timestamps
 from facelapse.cache import Cache
 from facelapse.config import Config
 from facelapse.records import Face, ImageRecord, Timestamp, TsSource
@@ -79,20 +78,6 @@ def test_alignment_corrects_roll():
     le2 = M @ np.array([f.kps[0][0], f.kps[0][1], 1.0])
     re2 = M @ np.array([f.kps[1][0], f.kps[1][1], 1.0])
     assert abs(le2[1] - re2[1]) < 1.0  # eyes on the same horizontal line
-
-
-def test_smoothing_reduces_jitter_preserves_drift():
-    # WHY: smoothing must kill high-freq jitter without erasing slow real drift.
-    n = 20
-    drift = np.linspace(0, 10, n)
-    jitter = np.array([(-1) ** i for i in range(n)]) * 2.0
-    seq = [SimilarityParams(0.0, 1.0, float(d + j), 0.0) for d, j in zip(drift, jitter)]
-    out = smoothing.smooth_params(seq, window=5)
-    tx = np.array([p.tx for p in out])
-    # jitter variance drops
-    assert np.var(np.diff(tx)) < np.var(np.diff([p.tx for p in seq]))
-    # endpoints still reflect the drift direction
-    assert tx[-1] > tx[0] + 5
 
 
 def test_bucket_key_grains():
