@@ -6,8 +6,10 @@ camera recorded."""
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
+import pytest
 
 from facelapse import pipeline, timestamps
 from facelapse.cache import Cache
@@ -62,3 +64,18 @@ def test_exif_original_is_read_from_the_exif_sub_ifd(tmp_path):
     ts = timestamps.resolve(p)
     assert ts.source == TsSource.EXIF_ORIGINAL
     assert ts.value == datetime(2019, 7, 4, 18, 30)
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("IMG_20210517_143000.jpg", datetime(2021, 5, 17, 14, 30, 0)),
+        ("PXL_20191225.jpg", datetime(2019, 12, 25)),
+        ("2021-05-17_14-30.jpg", datetime(2021, 5, 17, 14, 30)),
+        ("scan_20210517.jpg", datetime(2021, 5, 17)),
+        ("scan_20211340.jpg", None),
+        ("IMG_20211340_143000.jpg", None),
+    ],
+)
+def test_filename_patterns(name, expected):
+    assert timestamps._from_filename(Path(name)) == expected

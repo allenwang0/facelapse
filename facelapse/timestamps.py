@@ -95,6 +95,8 @@ def _from_filename(path: Path) -> datetime | None:
         try:
             if len(g) == 1 and len(g[0]) == 8:  # YYYYMMDD
                 return datetime.strptime(g[0], "%Y%m%d")
+            if len(g) == 3:  # YYYY MM DD
+                return datetime(int(g[0]), int(g[1]), int(g[2]))
             if len(g) == 2 and len(g[0]) == 8:  # YYYYMMDD + HHMMSS
                 return datetime.strptime(g[0] + g[1], "%Y%m%d%H%M%S")
             if len(g) >= 5:  # Y M D H M
