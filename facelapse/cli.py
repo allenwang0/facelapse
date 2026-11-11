@@ -54,16 +54,21 @@ def cmd_analyze(args):
     pipeline.analyze(args.folder, _cfg(args), force=args.force)
 
 
+def _au_scorer(args):
+    if args.no_au:
+        return None
+    from . import neutral
+
+    try:
+        return neutral.AUScorer()
+    except RuntimeError as e:
+        print(f"[warn] {e}")
+        return None
+
+
 def cmd_score(args):
     cfg = _cfg(args)
-    au = None
-    if not args.no_au:
-        try:
-            from .neutral import AUScorer
-
-            au = AUScorer()
-        except RuntimeError as e:
-            print(f"[warn] {e}")
+    au = _au_scorer(args)
     if args.apply_review:
         n = pipeline.apply_review(cfg, args.apply_review)
         print(f"[review] stored {n} promotions from {args.apply_review}")
@@ -116,17 +121,9 @@ def _load_rejects(path: str | None) -> set[str]:
 def cmd_run(args):
     cfg = _cfg(args)
     pipeline.analyze(args.folder, cfg, force=args.force)
-    au = None
-    if not args.no_au:
-        try:
-            from .neutral import AUScorer
-
-            au = AUScorer()
-        except RuntimeError:
-            pass
-    pipeline.score(cfg, au_scorer=au)
+    pipeline.score(cfg, au_scorer=_au_scorer(args))
     pipeline.select(cfg, allow_mtime_dates=args.allow_mtime_dates)
-    result = pipeline.render_final(cfg)
+    result = pipeline.render_final(cfg, rejects=_load_rejects(args.rejects))
     print(f"[done] {result['video']}")
 
 
@@ -169,6 +166,7 @@ def main(argv=None):
     s.add_argument("--force", action="store_true")
     s.add_argument("--no-au", action="store_true")
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
+    s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")
 
     args = p.parse_args(argv)
     return args.func(args)
