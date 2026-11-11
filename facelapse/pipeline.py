@@ -102,7 +102,9 @@ def score(cfg: Config, au_scorer=None) -> None:
     seeds = cache.seeds()
     chain = ReferenceChain(seeds, k=cfg.id_reference_k)
 
-    # group faces by image for the margin-based identity decision
+    # cleared in the same transaction as the writes below, so a stricter
+    # rerun cannot leave last run's is_self flags behind
+    cache.reset_scores()
     all_faces = cache.all_faces()
     by_img: dict[str, list] = {}
     for f in tqdm(all_faces, desc="Grouping faces", unit="face", disable=len(all_faces) < 100):
@@ -120,7 +122,6 @@ def score(cfg: Config, au_scorer=None) -> None:
             n_amb += 1
         else:
             n_none += 1
-        cache.update_faces(faces)
     print(f"[funnel] identity           confident {n_conf}  ambiguous {n_amb}  none {n_none}")
 
     # pose + neutral gates on the self-faces only
@@ -138,7 +139,7 @@ def score(cfg: Config, au_scorer=None) -> None:
             kept_pose += 1
         if f.passes_neutral:
             kept_neutral += 1
-        cache.update_face(f)
+    cache.update_faces(all_faces)
     _log("pose", kept_pose, len(self_faces))
     _log("neutral", kept_neutral, len(self_faces))
     cache.close()
@@ -147,6 +148,7 @@ def score(cfg: Config, au_scorer=None) -> None:
 # ---------------------------------------------------------------- select
 def select(cfg: Config) -> list:
     cache = Cache(cfg.cache_db)
+    cache.reset_selection()
     self_faces = cache.all_faces(only_self=True)
 
     # gates: pose required; neutral required if known, allowed-through if unknown

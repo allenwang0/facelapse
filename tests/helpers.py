@@ -23,3 +23,25 @@ def make_face(**kw: Any) -> Face:
     )
     base.update(kw)
     return Face(**base)
+
+
+def unit(v: np.ndarray) -> np.ndarray:
+    return (v / np.linalg.norm(v)).astype(np.float32)
+
+
+def embedding_with_similarity(ref: np.ndarray, sim: float, seed: int) -> np.ndarray:
+    """A unit vector whose cosine similarity to unit vector ref is exactly sim."""
+    rng = np.random.default_rng(seed)
+    u = rng.normal(size=ref.shape)
+    u -= (u @ ref) * ref
+    u /= np.linalg.norm(u)
+    return unit(sim * ref + np.sqrt(max(0.0, 1 - sim**2)) * u)
+
+
+def write_image(path: Any, seed: int, size: tuple[int, int] = (160, 160)) -> None:
+    """Noise image distinct enough per seed that pHash never groups two."""
+    from PIL import Image
+
+    rng = np.random.default_rng(seed)
+    small = rng.integers(0, 255, (8, 8, 3), dtype=np.uint8)
+    Image.fromarray(small).resize(size, Image.Resampling.NEAREST).save(path)

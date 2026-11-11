@@ -142,6 +142,18 @@ class Cache:
             for f in faces:
                 self._insert_face(f)
 
+    def reset_scores(self) -> None:
+        """Clear identity and gate results. Not committed: the caller's next
+        update_faces commits it together with the new results."""
+        self.db.execute(
+            "UPDATE faces SET is_self=0, id_sim=NULL, id_margin=NULL, passes_pose=NULL, "
+            "passes_neutral=NULL, neutral_penalty=NULL"
+        )
+
+    def reset_selection(self) -> None:
+        """Clear bucket winners. Not committed, same as reset_scores."""
+        self.db.execute("UPDATE faces SET selected=0, bucket=NULL, composite=NULL")
+
     def all_faces(self, only_self: bool = False, only_selected: bool = False) -> list[Face]:
         # Build query with proper WHERE clause (safe since conds are hardcoded)
         q = "SELECT * FROM faces"
