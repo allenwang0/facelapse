@@ -25,6 +25,7 @@ MANIFEST
 
 # Virtual environments
 venv/
+.venv/
 env/
 ENV/
 env.bak/
@@ -61,11 +62,13 @@ cache/
 output/
 out/
 *.mp4
-*.json
-!pyproject.json
-!package.json
+*.gif
 rejects.json
+review.json
 manifest.json
+verify.png
+labels.csv
+!examples/*.config.json
 
 # Temporary files
 *.tmp
