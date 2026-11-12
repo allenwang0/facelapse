@@ -1,101 +1,172 @@
 # facelapse
 
-Reconstruct a neutral-face aging timelapse from a chaotic personal photo archive (Google Photos / iCloud export), rather than from deliberately shot daily photos. The hard part is not rendering; it is *selection* (which photo, which face, is it you, is it neutral, is it usable) and *geometric normalization* (so successive frames read as one face changing, not a flipbook).
+facelapse builds a face-aging timelapse from the unsorted photo archive you already have, picking one aligned, neutral, front-facing photo of you per week or month.
 
-## What it does, as a funnel
+![Timelapse rendered from the synthetic demo archive](https://allenwang0.github.io/facelapse/timelapse.gif)
+
+[![Run report for the synthetic demo](https://allenwang0.github.io/facelapse/report.png)](https://allenwang0.github.io/facelapse/)
+
+Both images come from the synthetic demo: the faces are drawn shapes and detection is stubbed. The [live report](https://allenwang0.github.io/facelapse/) is the same page `facelapse report` writes for your own run.
+
+## Why
+
+Aging timelapses usually need a daily selfie habit kept up for years. Most people instead have a decade of phone photos: group shots, screenshots, re-saved copies, photos of relatives who look like them, and long gaps. facelapse works on that archive. The hard part is choosing which photo, which face in it, and whether it is usable; rendering is the easy part.
+
+## How it works
 
 ```
-ingest (HEIC-aware decode, content-hash, timestamp+confidence)
-  -> detect + landmark + ArcFace embed + pose        [EXPENSIVE, cached once]
-  -> identity gate (temporal reference chain + margin decision tree)
-  -> pose filter (roll corrected in align; yaw/pitch filtered, never faked)
-  -> neutral score (Action Units + geometric EAR/MAR/smile backstops)
-  -> quality score + temporal bucket + perceptual dedup
-  -> per-bucket best-face selection
-  -> align (eye + nasion similarity transform to a canonical frame)
-  -> photometric normalize (histogram match against a median reference)
-  -> temporal parameter smoothing (kill detector jitter, keep real drift)
-  -> [human review: static HTML approve/reject grid]
-  -> timeline overlay (real-time-scaled bar, year ticks, gliding marker)
-  -> H.264 encode + manifest
+ingest (folders or Takeout zips, HEIC-aware decode, content hash, dated with provenance)
+  -> detect + landmarks + ArcFace embedding + pose      [expensive, cached once]
+  -> identity gate (age-matched seeds, floor + margin over the runner-up)
+  -> pose filter (roll corrected later; yaw and pitch filtered, never faked)
+  -> neutral filter (Action Units + eye, mouth and smile geometry)
+  -> face size, perceptual dedup, trusted dates only
+  -> best photo per day, week or month (optionally capped per year)
+  -> align (eyes + nasion similarity transform to a fixed canvas)
+  -> smooth the alignment in canvas space (removes landmark jitter)
+  -> photometric normalization to a median-exposure reference
+  -> human review page (reject winners, resolve ambiguous photos)
+  -> timeline overlay (time-scaled bar, year ticks) + H.264, GIF, manifest
 ```
 
-Every filtering stage prints pass/fail counts, because attrition multiplies and silent starvation is the main failure mode.
+Every stage prints how many photos it kept and stores the count, with its top rejection reasons, in the cache.
 
-## Two design decisions worth knowing before you touch it
+Identity. Each face is compared with the seed photos nearest in time, because ArcFace embeddings drift as a face ages. In each image the most similar face must clear a floor (`id_t_abs`) and beat the second most similar face by a margin (`id_margin`). The margin is what keeps a sibling out: a crowd where you clearly match best passes, and a two-person photo where you and a lookalike are too close to call goes to the review page instead of being guessed. Face count never enters the decision. See `facelapse/identity.py`.
 
-**Identity is rank-with-margin, not per-face threshold, and it never counts faces.** For each image, every face is scored against the *temporally nearest* reference embeddings (ArcFace is only partially age-invariant, so a 2016 face is judged against 2016-era you). The top face must clear an absolute floor *and* beat the runner-up by a margin. The margin is what rejects lookalike relatives. A crowded photo where you dominate passes; a two-person photo where you and a sibling are a coin-flip apart is sent to review. See `identity.py`.
+Pose. Roll (head tilt in the image plane) is removed by the alignment transform. Yaw and pitch cannot be corrected without inventing hidden parts of the face, so turned faces are dropped. Among the survivors, selection prefers the most frontal face, which keeps the head from appearing to swivel between frames. See `facelapse/pose.py` and `facelapse/align.py`.
 
-**Facial angle: roll is corrected, yaw/pitch are filtered, nothing is fabricated.** Roll (in-plane tilt) is removed losslessly by the eye-alignment transform. Yaw and pitch (out-of-plane turns) cannot be corrected without inventing occluded pixels, so off-angle faces are dropped, not straightened. Among survivors, selection prefers the most frontal to minimize pose *variance* across the sequence (a set that merely stays under threshold but ranges widely still reads as a swiveling head). See `pose.py`, `align.py`.
+Caching. `analyze` runs detection once per photo and stores faces, embeddings, landmarks and a perceptual hash in SQLite (`cache/facelapse.db`). `score`, `select`, `review` and `render` read the cache, so you can change thresholds and rerun them in seconds. Each rerun clears the previous run's results first, so a stricter setting never leaves old winners behind.
 
 ## Install
 
 ```bash
-pip install -e .                          # core: decode, geometry, render
-pip install -r requirements-ml.txt        # detection, identity, expression
+git clone https://github.com/allenwang0/facelapse
+cd facelapse
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"     # core pipeline, tests and the synthetic demo
+pip install -e ".[ml]"      # InsightFace, ONNX Runtime, MediaPipe, py-feat for real photos
 ```
 
-Core deps run and test the whole geometry/data/render path. The ML deps (InsightFace buffalo_l, MediaPipe Face Mesh, py-feat) back detection, identity, and neutral scoring, and download weights on first run.
+The core install runs every stage except face detection, identity and expression scoring. The ML extras download model weights on first use. InsightFace's `buffalo_l` weights are licensed for non-commercial research only; check that license before using facelapse for anything else.
 
-## Use
+## Quickstart
+
+This runs the full pipeline on a generated archive of 60 drawn faces, so it needs only the core install:
 
 ```bash
-# 1. seed a few HAND-CONFIRMED photos of you, spread across the years
-facelapse seed add 2016_confirmed.jpg 2020_confirmed.jpg 2024_confirmed.jpg
+python tests/fixtures/make_fixtures.py
+facelapse seed add tests/fixtures/seeds/*.jpg --backend synthetic
+facelapse run tests/fixtures/photos --backend synthetic
+facelapse report --synthetic
+```
 
-# 2. expensive inference pass (cached; re-runnable stages read the cache)
-facelapse analyze ./my_photos
+The run writes `out/timelapse.mp4`, `out/manifest.json` and `out/report.html`. The archive contains a case for every filter: turned heads, smiles, closed eyes, tiny faces, a lookalike twin, strangers, a re-saved copy, screenshots dated only by file time, and photos dated by a Takeout sidecar or by filename. The `[funnel]` lines show each one being removed.
 
-# 3. cheap, re-runnable while tuning thresholds in a config JSON
+On your own photos, with the ML extras installed:
+
+```bash
+facelapse seed add 2016_me.jpg 2020_me.jpg 2024_me.jpg   # a few photos you confirm are you, spread over the years
+facelapse analyze ./my_photos takeout-001.zip takeout-002.zip
 facelapse score
-facelapse select
-
-# 4. eyeball the per-bucket winners, toggle rejects (console prints the list)
-facelapse review
-
-# 5. render (optionally pass the rejects JSON from review)
-facelapse render --rejects rejects.json
-
-# or the whole thing at once
-facelapse run ./my_photos --grain week
-
-# use a preset config (see examples/ directory)
-facelapse --config examples/balanced.json run ./my_photos
+facelapse select --max-frames 180
+facelapse review                                          # writes out/review.html; its button downloads review.json
+facelapse score --apply-review review.json                # stores your "this one is me" picks
+facelapse select --max-frames 180
+facelapse render --rejects review.json --gif --seconds 8
 ```
 
-Tune everything via a config JSON: `facelapse --config my.json run ...`. See `config.py` for every knob, or start with example configs in `examples/`.
+`analyze` reads folders and Google Takeout zips in place, without extracting, and pairs each photo with its Takeout sidecar even when the sidecar is in another zip. `--grain day|week|month` and `--config` work before or after the subcommand. Photos dated only by file modification time are left out unless you pass `select --allow-mtime-dates`. `render --layout story` writes a 1080x1920 video for phone stories.
 
-## Calibrate identity thresholds to YOUR face, not a benchmark
+To build one timelapse per person from the same archive, analyze once and pass `--person NAME` to `seed`, `score`, `select`, `review`, `render` and `report`. Each person gets their own seeds, results and `out/NAME/` folder.
 
-The default `id_t_abs` and `id_margin` are conservative placeholders. Derive real values from your own labeled pairs: same-person-across-years similarities (how low a true match legitimately drops with age) versus you-vs-relatives similarities (how high a false match climbs). `identity.calibrate()` returns suggested thresholds and flags the overlap band that belongs in human review.
+Getting a cleaner archive helps. In Google Photos, open your face group, merge any second group of younger you, add everything to an album and export that album with Takeout. In Apple Photos, export originals from your People album (expect HEIC).
 
-See `examples/README.md` for a detailed calibration guide with code examples.
+## Tuning
 
-## Getting the "only me" folder
+`facelapse report` writes `out/report.html`, one file with no external requests, so it is safe to open on private photos. It has five views:
 
-Google Photos: open your People cluster, check for a *second* cluster of younger-you and merge it, select all, add to an album, then Takeout that album (the sidecar JSON carries the best timestamps). iCloud: export originals from your People album on macOS (expect HEIC). Face clustering still returns group photos and occasional relatives, which is why the identity gate stays on.
+1. Funnel: photos kept at each stage, with the top rejection reasons on hover.
+2. Calibration explorer: one point per image, top-face similarity against margin over the runner-up, split into none, ambiguous and confident regions by the current thresholds. Two sliders move the thresholds and update the counts; "Copy config" gives the JSON for the values you chose. Click a point to see its thumbnail.
+3. Coverage: photos per bucket over time, with a mark on buckets that have a winner. Gaps show as gaps.
+4. Alignment stability: per frame, how far the eye midpoint sits from its target before and after smoothing.
+5. Date provenance: how many winners are dated by EXIF or Takeout, and how many rest on filenames or file times.
 
-## Verify-before-trusting flags
-
-These library specifics are marked `# VERIFY` in the code because getting them wrong corrupts output silently. Confirm on one of your own faces before a full run:
-
-- **InsightFace keypoint order** (`detection.py`): indices 0,1 must be the two eyes; alignment and interocular distance depend on it.
-- **InsightFace pose axis order** (`detection.py`): confirm the value treated as yaw actually moves with left/right head rotation.
-- **MediaPipe landmark indices** (`landmarks.py`): the EAR/MAR/nasion indices are the common canonical ones; plot them on a test face.
-- **py-feat AU column schema** (`neutral.py`): the AU return format is version-dependent.
-
-## Known limitations
-
-- The neutral filter leaks smirks and mid-blink frames; the review step is a designed stage, not a bug. Good scoring shrinks review from thousands to hundreds.
-- Festival/rave shots are hostile on every axis (colored light wrecks recognition and photometric consistency; motion blur craters sharpness; you're rarely neutral). They mostly get filtered by their real defects, not by a head-count rule.
-- Over-tight pose/neutral gates plus dedup can starve a sparse archive. Watch the funnel counts and loosen upstream before tightening downstream.
-- v1 renders honest cuts. FILM/RIFE morph interpolation is a later toggle; when added, the date label must hold on the source date while the timeline marker glides across interpolated frames.
-
-## Tests
+To set `id_margin` from your own photos, label some multi-face images in a CSV (`content_hash,me_face_id`, blank when you are not in the photo) and run:
 
 ```bash
-python -m pytest tests/test_core.py       # geometry + data layers, no ML
-python tests/e2e_smoke.py                 # full pipeline, ML stages stubbed
+facelapse calibrate labels.csv --target-far 0.01
 ```
 
-The smoke test proves the orchestration, cache, margin logic, alignment, bucketing, photometric, smoothing, timeline overlay, and encode all execute and emit a real mp4 + manifest; it stubs only the ML models, which are isolated behind `detection.py` / `landmarks.py` / `neutral.py`.
+It prints the smallest margin whose false-accept rate on your labels is at most 1% and the share of your own photos that still pass. `examples/README.md` explains the CSV.
+
+Before trusting a full run with the ML stack, run `facelapse verify one_of_your_photos.jpg`. It writes `verify.png` with the detector keypoints numbered and the MediaPipe points the code reads, and checks that mirroring the face flips yaw and roll, that a 15 degree rotation moves roll by about 15, and that the eye keypoints come in the expected order.
+
+## Configuration
+
+Three presets live in `examples/`: `balanced.config.json` (the defaults, weekly buckets), `conservative.config.json` (tighter pose and expression gates, monthly) and `sparse-archive.config.json` (looser gates for small archives, monthly).
+
+```bash
+facelapse --config examples/conservative.config.json run ./my_photos
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `id_t_abs` | 0.34 | minimum cosine similarity of the top face to the age-matched seeds |
+| `id_margin` | 0.10 | required gap between the top face and the runner-up; set it with `calibrate` |
+| `max_abs_yaw_deg`, `max_abs_pitch_deg` | 20 | turned faces beyond these are dropped |
+| `neutral_max_penalty` | 1.0 | expression penalty above which a face is dropped |
+| `min_interocular_px` | 40 | faces with eyes closer than this in the source photo are dropped |
+| `bucket_grain` | week | one winner per day, week or month |
+| `phash_hamming_dup_below` | 6 | perceptual-hash distance that counts as the same picture |
+| `smooth_window` | 3 | frames in the alignment smoothing window; 1 turns it off |
+| `photometric_mode` | hist_match | `none`, `exposure` or `hist_match` |
+| `fps` | 6 | frames per second unless `render --seconds` sets the length |
+
+Every field is in `facelapse/config.py`. Values without a cited source are tuned defaults, not measured constants.
+
+## Performance
+
+`render` streams: it measures each frame's exposure in a first pass that keeps one number per frame, then decodes, warps, normalizes and encodes one frame at a time. Peak memory no longer grows with the number of frames.
+
+| Frames (1600x1200 JPEG) | Peak RSS before | Peak RSS now | Wall time before | Wall time now |
+|---|---|---|---|---|
+| 100 | 541 MB | 363 MB | 3.9 s | 2.6 s |
+| 300 | 1,389 MB | 383 MB | 11.4 s | 8.8 s |
+| 1,000 | 4,466 MB | 382 MB | 30.5 s | 25.3 s |
+
+Measured with `scripts/bench_render.py` and `/usr/bin/time -l` on an Apple M5 Pro with 48 GB of memory, Python 3.12. "Before" is the render as of commit 531fc2f. The 100-frame output is identical frame for frame to that render. Across two runs, wall time varied by up to 25% and peak memory by under 5%. `select` reads the perceptual hash stored by `analyze` instead of decoding every photo again.
+
+## macOS without the ML stack
+
+On macOS, `--backend vision` uses Apple Vision for face landmarks and head pose. A small Objective-C helper (`facelapse/vision_detect.m`) is compiled with clang the first time you use it, so the Xcode Command Line Tools must be installed. Vision gives no identity embedding, so this backend cannot tell you apart from other people: `score --single-person` (required with this backend) skips the identity gate and takes the largest face in each photo. Use it on a folder that contains only you, such as an exported People album.
+
+```bash
+facelapse analyze ./only_me --backend vision
+facelapse score --single-person
+facelapse select && facelapse render
+```
+
+## Limitations
+
+- The library assumptions marked `# VERIFY` in the code (InsightFace keypoint order and pose axis order, MediaPipe landmark indices, the py-feat column format) have not been confirmed on a real photo with the ML stack. `facelapse verify` checks them on your photo; the checks themselves are tested against a synthetic detector, including copies with swapped axes and swapped eyes.
+- The neutral filter leaks smirks and mid-blink frames, which is why the review page exists. A closed-eye face with nothing else wrong scores exactly the default limit of 1.0 and passes; lower `neutral_max_penalty` if blinks get through.
+- Tight pose and expression gates plus dedup can starve a sparse archive. Read the funnel and loosen the upstream gates first.
+- `render --gif` keeps the 360 px GIF frames in memory; the video itself streams.
+- The synthetic demo shows that the stages run and filter what they should. It says nothing about detection or identity accuracy on real faces.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest -q --ignore=tests/e2e        # unit, regression and end-to-end tests on generated images
+ruff check . && ruff format --check . && mypy
+pip install -e ".[e2e]" && playwright install chromium
+pytest -q tests/e2e                 # loads the report in a browser at 390 and 1280 px, light and dark
+python scripts/make_card.py         # writes site/card.json for the portfolio site from a demo run
+```
+
+If the bundled headless Chromium cannot take screenshots on your machine, set `PLAYWRIGHT_CHANNEL=chrome` to use an installed Chrome. Tests never use real photos: `tests/fixtures/make_fixtures.py` draws every image. CI runs lint and types, the test matrix on Python 3.10 to 3.12 with a 75% coverage floor, the browser checks, and the Vision helper on macOS. `.github/workflows/pages.yml` publishes the synthetic demo report.
+
+## License
+
+MIT, see `LICENSE`. The InsightFace model weights the ML extras download have their own non-commercial research license.
