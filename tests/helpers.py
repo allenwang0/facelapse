@@ -33,7 +33,9 @@ def unit(v: np.ndarray) -> np.ndarray:
 
 def embedding_with_similarity(ref: np.ndarray, sim: float, seed: int) -> np.ndarray:
     """A unit vector whose cosine similarity to unit vector ref is exactly sim."""
-    rng = np.random.default_rng(seed)
+    # a separate stream, so the direction can never coincide with a ref
+    # drawn from default_rng(seed)
+    rng = np.random.default_rng([seed, 7919])
     u = rng.normal(size=ref.shape)
     u -= (u @ ref) * ref
     u /= np.linalg.norm(u)
