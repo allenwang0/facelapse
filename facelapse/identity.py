@@ -20,9 +20,9 @@ Outcomes per image:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
-from typing import Any
 
 import numpy as np
 
@@ -93,46 +93,33 @@ def resolve_image(
 
 
 def calibrate(
-    same_pairs: list[tuple[np.ndarray, np.ndarray]],
-    diff_pairs: list[tuple[np.ndarray, np.ndarray]],
-) -> dict[str, Any]:
-    """Derive defensible thresholds from YOUR labeled pairs instead of a
+    triples: Sequence[tuple[float, float, bool]], target_far: float = 0.01
+) -> dict[str, float]:
+    """Pick id_margin from YOUR labeled multi-face images instead of a
     borrowed benchmark number.
 
-    same_pairs: (you, you) across different years -> lower tail tells you how
-                low a TRUE match legitimately scores once aged.
-    diff_pairs: (you, confusable-other) -> upper tail tells you how high a
-                FALSE match climbs.
-
-    Returns suggested t_abs and margin, and flags the overlap region that
-    belongs in human review.
+    Each triple is (top_sim, runner_up_sim, top_is_me) for one image: the
+    margin is applied within an image, so it is calibrated on the same
+    quantity. Returns the smallest margin whose false-accept rate (images
+    where the top face is someone else, yet the gap clears the margin) is at
+    most target_far, with the resulting true-accept rate on images where the
+    top face is you.
     """
-    same = np.array([float(a @ b) for a, b in same_pairs]) if same_pairs else np.array([])
-    diff = np.array([float(a @ b) for a, b in diff_pairs]) if diff_pairs else np.array([])
-    out: dict[str, Any] = {}
-    if same.size:
-        out["same_min"] = float(same.min())
-        out["same_p05"] = float(np.percentile(same, 5))
-        out["same_median"] = float(np.median(same))
-        # floor just below the true-match lower tail so aged frames survive
-        out["suggested_t_abs"] = round(float(np.percentile(same, 5)) - 0.02, 3)
-    if diff.size:
-        out["diff_max"] = float(diff.max())
-        out["diff_p95"] = float(np.percentile(diff, 95))
-        # margin wide enough to clear the false-match upper tail
-        out["suggested_margin"] = round(
-            max(0.05, float(np.percentile(diff, 95)) - out.get("same_p05", 0.0)), 3
-        )
-    if same.size and diff.size:
-        overlap = max(0.0, float(diff.max()) - float(same.min()))
-        out["overlap"] = overlap
-        out["overlap_warning"] = (
-            "Non-trivial overlap: pairs in this band are irreducibly ambiguous "
-            "and must go to human review."
-            if overlap > 0.03
-            else "Clean separation."
-        )
-    return out
+    gaps = np.array([top - runner for top, runner, _ in triples], dtype=np.float64)
+    is_me = np.array([me for _, _, me in triples], dtype=bool)
+    neg = np.sort(gaps[~is_me])[::-1]
+    pos = gaps[is_me]
+    allowed = int(np.floor(target_far * neg.size + 1e-9))
+    margin = 0.0 if allowed >= neg.size else float(np.nextafter(neg[allowed], np.inf))
+    far = float(np.mean(neg >= margin)) if neg.size else 0.0
+    tar = float(np.mean(pos >= margin)) if pos.size else 0.0
+    return {
+        "margin": margin,
+        "false_accept_rate": far,
+        "true_accept_rate": tar,
+        "n_me_on_top": float(pos.size),
+        "n_other_on_top": float(neg.size),
+    }
 
 
 def _epoch(dt: datetime) -> float:

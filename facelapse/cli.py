@@ -127,6 +127,40 @@ def cmd_run(args):
     print(f"[done] {result['video']}")
 
 
+def cmd_calibrate(args):
+    import csv
+
+    from .cache import Cache
+    from .identity import calibrate
+
+    cfg = _cfg(args)
+    cache = Cache(cfg.cache_db)
+    triples = []
+    with open(args.labels, newline="") as fh:
+        for row in csv.DictReader(fh):
+            faces = sorted(
+                (f for f in cache.faces_of(row["content_hash"]) if f.id_sim is not None),
+                key=lambda f: f.id_sim,
+                reverse=True,
+            )
+            if len(faces) < 2:
+                continue
+            me = row.get("me_face_id", "").strip()
+            top_is_me = me != "" and int(me) == faces[0].face_id
+            triples.append((faces[0].id_sim, faces[1].id_sim, top_is_me))
+    cache.close()
+    if not triples:
+        print("[calibrate] no labeled image has two scored faces; run facelapse score first")
+        return 1
+    out = calibrate(triples, target_far=args.target_far)
+    print(
+        f"[calibrate] {len(triples)} images: false accept rate {out['false_accept_rate']:.3f}, "
+        f"true accept rate {out['true_accept_rate']:.2f}"
+    )
+    print(json.dumps({"id_margin": round(out["margin"], 4)}))
+    return 0
+
+
 def main(argv=None):
     # --config and --grain are accepted before or after the subcommand.
     # SUPPRESS keeps a subparser's unset copy from overwriting a value given
@@ -159,6 +193,9 @@ def main(argv=None):
     s = command("select", cmd_select)
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
     command("review", cmd_review)
+    s = command("calibrate", cmd_calibrate)
+    s.add_argument("labels", help="CSV with columns content_hash,me_face_id (blank if absent)")
+    s.add_argument("--target-far", type=float, default=0.01, help="allowed false-accept rate")
     s = command("render", cmd_render)
     s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")
     s = command("run", cmd_run)
