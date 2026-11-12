@@ -5,10 +5,10 @@ starves the funnel if set wrong. Centralizing them means you tune in one
 file and re-run the cheap downstream stages against the cached inference,
 instead of hunting magic numbers across modules.
 
-None of these defaults are gospel. The identity thresholds in particular
-MUST be recalibrated against your own labeled pairs (see identity.py and
-the calibrate command); the values here are placeholders chosen to be
-conservative, not correct-for-you.
+Unless a comment names a source, each number is a tuned default chosen on
+the author's archive, not a measured constant. The identity thresholds in
+particular must be recalibrated on your own photos with `facelapse
+calibrate`; the values here are conservative placeholders.
 """
 
 from __future__ import annotations
@@ -22,13 +22,12 @@ from pathlib import Path
 class Config:
     # --- paths ---
     cache_db: str = "cache/facelapse.db"  # SQLite: image + face records, embeddings, scores
-    seeds_path: str = "cache/seeds.json"  # hand-confirmed reference photos of you
     out_dir: str = "out"  # renders, manifest, review page
 
     # --- ingest ---
     image_exts: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp")
 
-    # --- identity gate (RECALIBRATE per identity.py.calibrate) ---
+    # --- identity gate (recalibrate with `facelapse calibrate`) ---
     # t_abs: minimum cosine similarity for "this could be me at all".
     # margin: required gap between best and second-best face in an image.
     # Both are model- and normalization-dependent. Do not trust these numbers.
