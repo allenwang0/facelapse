@@ -21,7 +21,7 @@ import imageio.v2 as imageio
 import numpy as np
 from PIL import Image
 
-from .timeline import TimelineRenderer, robust_range
+from .timeline import TimelineRenderer, percentile_range
 
 
 def _even(frame: np.ndarray) -> np.ndarray:
@@ -99,7 +99,7 @@ def render_video(
 
     tl = None
     if cfg.draw_timeline and dates:
-        lo, hi = robust_range(dates, confident, cfg.date_range_percentiles)
+        lo, hi = percentile_range(dates, confident, cfg.date_range_percentiles)
         tl = TimelineRenderer(cfg, lo, hi, output_size(cfg, opts.layout))
 
     writer = imageio.get_writer(

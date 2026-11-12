@@ -4,7 +4,7 @@ the marker jumps unevenly, so the viewer feels the difference between the
 periods you lived in front of a camera and the periods you vanished from the
 record. That tension is the point of a dated aging video.
 
-The bar scale is clamped to a robust percentile range of HIGH-CONFIDENCE
+The bar scale is clamped to a percentile range of HIGH-CONFIDENCE
 dates so a single corrupted 1970/2038 timestamp can't compress the whole bar
 into a sliver.
 
@@ -48,7 +48,7 @@ def _font(size: int, path: str | None):
     return ImageFont.load_default()
 
 
-def robust_range(
+def percentile_range(
     dates: list[datetime], confident: list[bool], pct: tuple[float, float]
 ) -> tuple[float, float]:
     """Bar min/max in epoch seconds, from confident dates, percentile-clamped."""
