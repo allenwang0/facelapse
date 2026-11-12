@@ -35,10 +35,34 @@ from .config import Config
 from .identity import IdOutcome, ReferenceChain, resolve_image
 from .records import ImageRecord
 
+# Funnel stages in order. Each is recorded in the cache with its rejection
+# reasons so `facelapse report` shows the same numbers the log printed.
+STAGES = [
+    "ingested",
+    "decoded",
+    "face found",
+    "identity",
+    "pose",
+    "neutral",
+    "size",
+    "dedup",
+    "trusted date",
+    "bucket winners",
+    "rendered",
+]
 
-def _log(stage: str, kept: int, total: int) -> None:
+
+def _log(
+    stage: str,
+    kept: int,
+    total: int,
+    cache: Cache | None = None,
+    reasons: dict[str, int] | None = None,
+) -> None:
     pct = (100.0 * kept / total) if total else 0.0
     print(f"[funnel] {stage:<18} kept {kept:>6} / {total:<6} ({pct:5.1f}%)")
+    if cache is not None:
+        cache.record_stage(stage, kept, total, {k: v for k, v in (reasons or {}).items() if v})
 
 
 # ---------------------------------------------------------------- analyze
@@ -103,8 +127,23 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
         cache.set_phash(ch, str(dedup.phash(rgb)))
         n_img += 1
         n_face += len(faces)
-    _log("analyze(images)", n_img, n_img)
-    print(f"[funnel] analyze(faces)      {n_face} faces detected across {n_img} new images")
+    print(f"[analyze] {n_face} faces detected across {n_img} new images")
+    rows = cache.db.execute(
+        "SELECT i.decoded_ok, i.error, COUNT(f.face_id) FROM images i "
+        "LEFT JOIN faces f ON f.content_hash = i.content_hash GROUP BY i.content_hash"
+    ).fetchall()
+    decoded = [r for r in rows if r[0]]
+    errors: dict[str, int] = {}
+    for r in rows:
+        if not r[0]:
+            key = (r[1] or "unreadable").split(":")[0][:60]
+            errors[key] = errors.get(key, 0) + 1
+    with_face = sum(1 for r in decoded if r[2])
+    _log("ingested", len(rows), len(rows), cache)
+    _log("decoded", len(decoded), len(rows), cache, errors)
+    _log(
+        "face found", with_face, len(decoded), cache, {"no face detected": len(decoded) - with_face}
+    )
     cache.close()
 
 
@@ -137,14 +176,14 @@ def score(cfg: Config, au_scorer=None) -> None:
         cache.set_outcome(ch, outcome.value)
         if outcome in (IdOutcome.CONFIDENT, IdOutcome.PROMOTED):
             self_faces.append(chosen)
-    print(
-        f"[funnel] identity           confident {counts[IdOutcome.CONFIDENT]}  "
-        f"promoted {counts[IdOutcome.PROMOTED]}  ambiguous {counts[IdOutcome.AMBIGUOUS]}  "
-        f"none {counts[IdOutcome.NONE]}"
-    )
+    identity_reasons = {
+        "ambiguous: top two faces too close": counts[IdOutcome.AMBIGUOUS],
+        "no face matched the seeds": counts[IdOutcome.NONE],
+    }
 
     # pose + neutral gates on the self-faces only
-    kept_pose = kept_neutral = 0
+    pose_reasons = {"yaw over the limit": 0, "pitch over the limit": 0, "pose unknown": 0}
+    neutral_reasons = {"eyes closed": 0, "mouth open": 0, "smile or other expression": 0}
     for f in self_faces:
         f.passes_pose = pose_mod.passes_pose(f, cfg.max_abs_yaw_deg, cfg.max_abs_pitch_deg)
         if f.dense is not None:
@@ -154,13 +193,26 @@ def score(cfg: Config, au_scorer=None) -> None:
             )
         else:
             f.passes_neutral = None  # unknown; select stage will treat conservatively
-        if f.passes_pose:
-            kept_pose += 1
-        if f.passes_neutral:
-            kept_neutral += 1
+        if not f.passes_pose:
+            if np.isnan(f.yaw) or np.isnan(f.pitch):
+                pose_reasons["pose unknown"] += 1
+            elif abs(f.yaw) > cfg.max_abs_yaw_deg:
+                pose_reasons["yaw over the limit"] += 1
+            else:
+                pose_reasons["pitch over the limit"] += 1
+        elif f.passes_neutral is False:
+            if f.ear is not None and f.ear < cfg.ear_closed_below:
+                neutral_reasons["eyes closed"] += 1
+            elif f.mar is not None and f.mar > cfg.mar_open_above:
+                neutral_reasons["mouth open"] += 1
+            else:
+                neutral_reasons["smile or other expression"] += 1
     cache.update_faces(all_faces)
-    _log("pose", kept_pose, len(self_faces))
-    _log("neutral", kept_neutral, len(self_faces))
+    posed = [f for f in self_faces if f.passes_pose]
+    neutral = [f for f in posed if f.passes_neutral in (True, None)]
+    _log("identity", len(self_faces), len(by_img), cache, identity_reasons)
+    _log("pose", len(posed), len(self_faces), cache, pose_reasons)
+    _log("neutral", len(neutral), len(posed), cache, neutral_reasons)
     cache.close()
 
 
@@ -184,14 +236,10 @@ def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
     self_faces = cache.all_faces(only_self=True)
 
     # gates: pose required; neutral required if known, allowed-through if unknown
-    gated = [
-        f
-        for f in self_faces
-        if f.passes_pose
-        and (f.passes_neutral in (True, None))
-        and (f.interocular_px or 0) >= cfg.min_interocular_px
-    ]
-    _log("size+gates", len(gated), len(self_faces))
+    passed = [f for f in self_faces if f.passes_pose and (f.passes_neutral in (True, None))]
+    gated = [f for f in passed if (f.interocular_px or 0) >= cfg.min_interocular_px]
+    small = f"eyes under {cfg.min_interocular_px:.0f} px apart"
+    _log("size", len(gated), len(passed), cache, {small: len(passed) - len(gated)})
 
     # dedup across the gated set (re-saved copies)
     # pHash is stored by analyze; caches from before that column are filled here once
@@ -211,17 +259,23 @@ def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
             continue
         seen.add(rep)
         deduped.append(f)
-    _log("dedup", len(deduped), len(gated))
+    dup = {"near-duplicate of another photo": len(gated) - len(deduped)}
+    _log("dedup", len(deduped), len(gated), cache, dup)
 
     ts_of = {}
+    date_reasons: dict[str, int] = {}
     for f in deduped:
         ts = cache.image_ts(f.content_hash)
         if ts.value is not None and (ts.is_trustworthy or allow_mtime_dates):
             ts_of[f.content_hash] = ts.value
+        else:
+            key = "dated only by file mtime" if ts.value is not None else "no date"
+            date_reasons[key] = date_reasons.get(key, 0) + 1
     dated = [f for f in deduped if f.content_hash in ts_of]
-    _log("trusted-date", len(dated), len(deduped))
+    _log("trusted date", len(dated), len(deduped), cache, date_reasons)
     winners = bucketing.select_best_per_bucket(dated, ts_of, cfg)
-    _log("bucket-winners", len(winners), len(dated))
+    lost = {"lost to a better photo in its bucket": len(dated) - len(winners)}
+    _log("bucket winners", len(winners), len(dated), cache, lost)
 
     cache.update_faces(winners)
     cache.close()
@@ -236,6 +290,7 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
     overlays and encodes one frame at a time."""
     cache = Cache(cfg.cache_db)
     winners = cache.all_faces(only_selected=True)
+    n_selected = len(winners)
     rejects = rejects or set()
     winners = [f for f in winners if f.content_hash not in rejects]
 
@@ -298,7 +353,10 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
         for f in winners
     ]
     result = render.render_video(frames(), dates, confident, rows, cfg)
-    _log("render", len(rows), len(winners))
+    cache = Cache(cfg.cache_db)
+    reviewed = {"rejected on the review page": n_selected - len(rows)}
+    _log("rendered", len(rows), n_selected, cache, reviewed)
+    cache.close()
     return result
 
 

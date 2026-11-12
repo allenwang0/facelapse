@@ -10,6 +10,7 @@ and keypoints are stored as raw float32 BLOBs (np.tobytes / np.frombuffer).
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -70,6 +71,13 @@ MIGRATIONS = [
     );
     """,
     "ALTER TABLE images ADD COLUMN phash TEXT;",
+    """
+    CREATE TABLE funnel (
+        stage TEXT PRIMARY KEY,
+        kept INTEGER, total INTEGER,
+        reasons TEXT
+    );
+    """,
 ]
 
 
@@ -192,6 +200,17 @@ class Cache:
     def set_phash(self, content_hash: str, value: str) -> None:
         with self.db:
             self.db.execute("UPDATE images SET phash=? WHERE content_hash=?", (value, content_hash))
+
+    def record_stage(self, stage: str, kept: int, total: int, reasons: dict[str, int]) -> None:
+        with self.db:
+            self.db.execute(
+                "INSERT OR REPLACE INTO funnel VALUES (?,?,?,?)",
+                (stage, kept, total, json.dumps(reasons)),
+            )
+
+    def stages(self) -> dict[str, tuple[int, int, dict[str, int]]]:
+        rows = self.db.execute("SELECT stage, kept, total, reasons FROM funnel")
+        return {s: (k, t, json.loads(r)) for s, k, t, r in rows}
 
     def faces_of(self, content_hash: str) -> list[Face]:
         cur = self.db.execute("SELECT * FROM faces WHERE content_hash=?", (content_hash,))
