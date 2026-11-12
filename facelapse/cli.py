@@ -87,7 +87,9 @@ def cmd_score(args):
 
 
 def cmd_select(args):
-    pipeline.select(_cfg(args), allow_mtime_dates=args.allow_mtime_dates)
+    pipeline.select(
+        _cfg(args), allow_mtime_dates=args.allow_mtime_dates, max_frames=args.max_frames
+    )
 
 
 def cmd_review(args):
@@ -254,6 +256,7 @@ def main(argv=None):
     s.add_argument("--apply-review", help="review.json whose promotions to store before scoring")
     s = command("select", cmd_select)
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
+    s.add_argument("--max-frames", type=int, help="cap winners, spread evenly across years")
     command("review", cmd_review)
     s = command("report", cmd_report)
     s.add_argument("--no-thumbs", action="store_true", help="leave image thumbnails out")

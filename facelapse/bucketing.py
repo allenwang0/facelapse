@@ -82,3 +82,51 @@ def select_best_per_bucket(
     # chronological order for the video
     winners.sort(key=lambda f: ts_of[f.content_hash])
     return winners
+
+
+def year_quotas(sizes: dict[str, int], n: int) -> dict[str, int]:
+    """Water-fill a budget of n frames across years. Years with fewer frames
+    than the current fair share keep all of them; the rest split what is left
+    as evenly as possible. Quotas sum to min(n, total) and never exceed a
+    year's size. Ported from face-lapse (commit 50de507), whose ceil-based
+    share overshot: years of 47, 67 and 67 frames with n=180 got 181."""
+    quota = dict.fromkeys(sizes, 0)
+    if sum(sizes.values()) <= n:
+        return dict(sizes)
+    left, active = n, sorted(sizes)
+    while active:
+        share = left // len(active)
+        capped = [y for y in active if sizes[y] <= share]
+        if not capped:
+            for y in active:
+                quota[y] = share
+            for y in active[: left - share * len(active)]:
+                quota[y] += 1
+            break
+        for y in capped:
+            quota[y] = sizes[y]
+            left -= sizes[y]
+            active.remove(y)
+    return quota
+
+
+def thin_by_year(winners: list[Face], ts_of: dict[str, datetime], n: int) -> list[Face]:
+    """Keep at most n winners, spread across years by year_quotas and, within
+    a year, picked closest to evenly spaced target dates."""
+    by_year: dict[str, list[Face]] = {}
+    for f in sorted(winners, key=lambda f: ts_of[f.content_hash]):
+        by_year.setdefault(str(ts_of[f.content_hash].year), []).append(f)
+    quota = year_quotas({y: len(v) for y, v in by_year.items()}, n)
+    kept: list[Face] = []
+    for year, items in by_year.items():
+        q = quota[year]
+        if q >= len(items):
+            kept.extend(items)
+            continue
+        times = np.array([ts_of[f.content_hash].timestamp() for f in items])
+        available = set(range(len(items)))
+        for t in np.linspace(times[0], times[-1], q):
+            j = min(available, key=lambda k: abs(times[k] - t))
+            kept.append(items[j])
+            available.remove(j)
+    return sorted(kept, key=lambda f: ts_of[f.content_hash])

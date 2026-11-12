@@ -228,7 +228,7 @@ def apply_review(cfg: Config, review_path: str) -> int:
 
 
 # ---------------------------------------------------------------- select
-def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
+def select(cfg: Config, allow_mtime_dates: bool = False, max_frames: int | None = None) -> list:
     """allow_mtime_dates admits photos dated only by file mtime; by default
     they are dropped because mtime dates screenshots, copies and re-saves."""
     cache = Cache(cfg.cache_db)
@@ -276,6 +276,16 @@ def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
     winners = bucketing.select_best_per_bucket(dated, ts_of, cfg)
     lost = {"lost to a better photo in its bucket": len(dated) - len(winners)}
     _log("bucket winners", len(winners), len(dated), cache, lost)
+    if max_frames is not None and len(winners) > max_frames:
+        kept = bucketing.thin_by_year(winners, ts_of, max_frames)
+        for f in winners:
+            f.selected = False
+        for f in kept:
+            f.selected = True
+        print(f"[select] --max-frames {max_frames}: kept {len(kept)} of {len(winners)} winners")
+        cache.update_faces(winners)
+        cache.close()
+        return kept
 
     cache.update_faces(winners)
     cache.close()
