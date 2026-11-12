@@ -200,13 +200,16 @@ def identity_embedding(identity: str | None, jitter_seed: int) -> np.ndarray:
     base_rng = np.random.default_rng(1234)
     subject = base_rng.normal(size=512)
     subject /= np.linalg.norm(subject)
-    ortho = base_rng.normal(size=512)
-    ortho -= (ortho @ subject) * subject
-    ortho /= np.linalg.norm(ortho)
-    sim = _SIMILARITY.get(identity or "", 0.0)
     if identity is None:
         vec = np.random.default_rng(jitter_seed).normal(size=512)
     else:
+        # each identity leans on its own direction orthogonal to the subject,
+        # so two non-subject identities are not similar to each other
+        k = list(IDENTITIES).index(identity)
+        ortho = np.random.default_rng(5678 + k).normal(size=512)
+        ortho -= (ortho @ subject) * subject
+        ortho /= np.linalg.norm(ortho)
+        sim = _SIMILARITY[identity]
         vec = sim * subject + math.sqrt(1 - sim**2) * ortho
     noise = np.random.default_rng(jitter_seed).normal(size=512)
     vec = vec / np.linalg.norm(vec) + 0.25 * noise / np.linalg.norm(noise)

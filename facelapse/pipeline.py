@@ -92,7 +92,7 @@ def analyze(
                 "neutral scoring and nasion alignment degraded."
             )
 
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     sources = list(ingest.iter_sources(folders, cfg.image_exts))
     n_img = n_face = 0
     for src in tqdm(sources, desc="Analyzing images", unit="img"):
@@ -151,7 +151,7 @@ def analyze(
 def score(cfg: Config, au_scorer=None, single_person: bool = False) -> None:
     """single_person skips the identity gate and takes the largest face in
     each image; it is the only mode for backends without embeddings."""
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     seeds = cache.seeds()
     chain = ReferenceChain(seeds, k=cfg.id_reference_k)
 
@@ -236,7 +236,7 @@ def apply_review(cfg: Config, review_path: str) -> int:
     They persist in the cache, so every later score run honors them."""
     data = json.loads(Path(review_path).read_text())
     keys = [(p["content_hash"], int(p["face_id"])) for p in data.get("promotions", [])]
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     cache.add_promotions(keys)
     cache.close()
     return len(keys)
@@ -246,7 +246,7 @@ def apply_review(cfg: Config, review_path: str) -> int:
 def select(cfg: Config, allow_mtime_dates: bool = False, max_frames: int | None = None) -> list:
     """allow_mtime_dates admits photos dated only by file mtime; by default
     they are dropped because mtime dates screenshots, copies and re-saves."""
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     cache.reset_selection()
     self_faces = cache.all_faces(only_self=True)
 
@@ -317,7 +317,7 @@ def render_final(
     Pass 1 (photometric modes only) warps each frame to measure its mean
     luminance and keeps nothing else; pass 2 decodes, warps, normalizes,
     overlays and encodes one frame at a time."""
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     winners = cache.all_faces(only_selected=True)
     n_selected = len(winners)
     rejects = rejects or set()
@@ -384,7 +384,7 @@ def render_final(
         for f, raw, smooth in zip(winners, raw_params, params_seq)
     ]
     result = render.render_video(frames(), dates, confident, rows, cfg, options)
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     reviewed = {"rejected on the review page": n_selected - len(rows)}
     _log("rendered", len(rows), n_selected, cache, reviewed)
     cache.close()

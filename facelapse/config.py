@@ -22,7 +22,10 @@ from pathlib import Path
 class Config:
     # --- paths ---
     cache_db: str = "cache/facelapse.db"  # SQLite: image + face records, embeddings, scores
-    out_dir: str = "out"  # renders, manifest, review page
+    out_dir: str = "out"
+    person: str = (
+        ""  # namespace for seeds and results; set by --person  # renders, manifest, review page
+    )
 
     # --- ingest ---
     image_exts: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp")

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -28,6 +29,12 @@ def _cfg(args) -> Config:
     cfg = Config.load(getattr(args, "config", None))
     if getattr(args, "grain", None):
         cfg.bucket_grain = args.grain
+    person = getattr(args, "person", None)
+    if person:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", person):
+            raise SystemExit("--person takes letters, digits, '-' and '_' only")
+        cfg.person = person
+        cfg.out_dir = str(Path(cfg.out_dir) / person)
     return cfg
 
 
@@ -52,7 +59,7 @@ def cmd_seed(args):
     from .cache import Cache
 
     cfg = _cfg(args)
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     det, _ = _backend(args)
     for p in args.paths:
         path = Path(p)
@@ -105,7 +112,7 @@ def cmd_review(args):
     from .review import THUMB_W, Thumb, write_review
 
     cfg = _cfg(args)
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     winners = cache.all_faces(only_selected=True)
     ambiguous = []
     for ch in cache.hashes_with_outcome("ambiguous"):
@@ -160,7 +167,7 @@ def cmd_calibrate(args):
     from .identity import calibrate
 
     cfg = _cfg(args)
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     triples = []
     with open(args.labels, newline="") as fh:
         for row in csv.DictReader(fh):
@@ -233,6 +240,11 @@ def main(argv=None):
     # before the subcommand.
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--config", default=argparse.SUPPRESS, help="path to config JSON")
+    shared.add_argument(
+        "--person",
+        default=argparse.SUPPRESS,
+        help="whose timelapse: separate seeds, scores and selection in the same cache",
+    )
     shared.add_argument(
         "--grain",
         choices=["day", "week", "month"],

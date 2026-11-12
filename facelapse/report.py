@@ -173,7 +173,7 @@ def _provenance(cache: Cache) -> tuple[dict[str, int], str]:
 
 
 def build_data(cfg: Config, thumbs: bool = True, synthetic: bool = False) -> dict[str, Any]:
-    cache = Cache(cfg.cache_db)
+    cache = Cache(cfg.cache_db, cfg.person)
     manifest_path = Path(cfg.out_dir) / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
     funnel, funnel_note = _funnel(cache)
