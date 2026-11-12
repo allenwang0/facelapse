@@ -49,7 +49,7 @@ class AUScorer:
             if isinstance(col, str) and col.upper().startswith("AU"):
                 try:
                     aus[col.upper().replace("AU", "AU").split("_")[0]] = float(res[col].iloc[0])
-                except Exception:
+                except (TypeError, ValueError, IndexError):
                     continue
         return aus
 
@@ -98,9 +98,5 @@ def score_face(
     f.ear, f.mar = ear, mar
     total = geo
     if au_scorer is not None and rgb_crop is not None:
-        try:
-            aus = au_scorer.au_activations(rgb_crop)
-            total += au_penalty(aus, cfg.au_weights)
-        except Exception:
-            pass  # AU stage optional; geometry already gives a usable signal
+        total += au_penalty(au_scorer.au_activations(rgb_crop), cfg.au_weights)
     f.neutral_penalty = total

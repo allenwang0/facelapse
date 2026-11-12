@@ -26,7 +26,7 @@ try:
 
     pillow_heif.register_heif_opener()
     HEIF_OK = True
-except Exception:
+except ImportError:
     HEIF_OK = False
 
 

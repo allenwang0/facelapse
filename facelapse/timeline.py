@@ -31,12 +31,12 @@ def _font(size: int, path: str | None):
     if path:
         try:
             return ImageFont.truetype(path, size)
-        except Exception:
+        except OSError:
             pass
     for cand in _FONT_CANDIDATES:
         try:
             return ImageFont.truetype(cand, size)
-        except Exception:
+        except OSError:
             continue
     # Fallback to PIL default (low quality bitmap font)
     import sys

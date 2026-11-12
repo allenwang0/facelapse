@@ -202,7 +202,10 @@ def score(cfg: Config, au_scorer=None, single_person: bool = False) -> None:
     for f in self_faces:
         f.passes_pose = pose_mod.passes_pose(f, cfg.max_abs_yaw_deg, cfg.max_abs_pitch_deg)
         if f.dense is not None:
-            neutral_mod.score_face(f, cfg, au_scorer=au_scorer)
+            crop = None
+            if au_scorer is not None:
+                crop = _crop(ingest.decode(cache.image_path(f.content_hash)), f.bbox)
+            neutral_mod.score_face(f, cfg, au_scorer=au_scorer, rgb_crop=crop)
             f.passes_neutral = (
                 f.neutral_penalty is not None and f.neutral_penalty <= cfg.neutral_max_penalty
             )

@@ -83,3 +83,40 @@ def test_coarser_grain_rerun_keeps_one_winner_per_bucket(tmp_path):
     cache.close()
     buckets = [f.bucket for f in selected]
     assert len(buckets) == len(set(buckets)) == 3
+
+
+def test_au_scorer_is_applied_during_score(tmp_path):
+    # WHY: score used to load py-feat and then never pass it a crop, so the
+    # Action Unit term silently never counted.
+    from facelapse.synthetic import FaceSpec, SyntheticMesh, draw_face
+
+    cfg = _build(tmp_path)
+    cache = Cache(cfg.cache_db)
+    faces = cache.all_faces()
+    img = np.full((160, 160, 3), 90, np.uint8)
+    draw_face(img, FaceSpec(80, 60, 40))
+    for f in faces:
+        from PIL import Image
+
+        Image.fromarray(img).save(cache.image_path(f.content_hash))
+        f.bbox = np.array([0, 0, 160, 160], np.float32)
+        f.dense = SyntheticMesh().landmarks(img)
+    cache.update_faces(faces)
+    cache.close()
+
+    class SmilingAU:
+        def __init__(self):
+            self.calls = 0
+
+        def au_activations(self, crop):
+            self.calls += 1
+            return {"AU12": 2.0}
+
+    au = SmilingAU()
+    cfg.id_t_abs = 0.2
+    pipeline.score(cfg, au_scorer=au)
+    cache = Cache(cfg.cache_db)
+    self_faces = cache.all_faces(only_self=True)
+    cache.close()
+    assert au.calls == len(self_faces) > 0
+    assert all(f.passes_neutral is False for f in self_faces)
