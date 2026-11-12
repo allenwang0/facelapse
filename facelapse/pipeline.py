@@ -293,7 +293,11 @@ def select(cfg: Config, allow_mtime_dates: bool = False, max_frames: int | None 
 
 
 # ---------------------------------------------------------------- render
-def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
+def render_final(
+    cfg: Config,
+    rejects: set[str] | None = None,
+    options: render.OutputOptions | None = None,
+) -> dict:
     """Two streaming passes, so peak memory does not grow with frame count.
     Pass 1 (photometric modes only) warps each frame to measure its mean
     luminance and keeps nothing else; pass 2 decodes, warps, normalizes,
@@ -364,7 +368,7 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
         }
         for f, raw, smooth in zip(winners, raw_params, params_seq)
     ]
-    result = render.render_video(frames(), dates, confident, rows, cfg)
+    result = render.render_video(frames(), dates, confident, rows, cfg, options)
     cache = Cache(cfg.cache_db)
     reviewed = {"rejected on the review page": n_selected - len(rows)}
     _log("rendered", len(rows), n_selected, cache, reviewed)

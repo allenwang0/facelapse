@@ -116,10 +116,15 @@ def cmd_review(args):
 
 def cmd_render(args):
     cfg = _cfg(args)
+    from .render import OutputOptions
+
     rejects = _load_rejects(args.rejects)
-    result = pipeline.render_final(cfg, rejects=rejects)
+    opts = OutputOptions(layout=args.layout, gif=args.gif, seconds=args.seconds)
+    result = pipeline.render_final(cfg, rejects=rejects, options=opts)
     print(f"[render] {result['video']}")
     print(f"[render] {result['manifest']}")
+    if "gif" in result:
+        print(f"[render] {result['gif']}")
 
 
 def _load_rejects(path: str | None) -> set[str]:
@@ -270,6 +275,9 @@ def main(argv=None):
     s.add_argument("--target-far", type=float, default=0.01, help="allowed false-accept rate")
     s = command("render", cmd_render)
     s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")
+    s.add_argument("--layout", choices=["canvas", "square", "story"], default="canvas")
+    s.add_argument("--gif", action="store_true", help="also write a looping timelapse.gif")
+    s.add_argument("--seconds", type=float, help="fixed length; fps follows, 1 s end hold")
     s = command("run", cmd_run)
     s.add_argument("folder")
     s.add_argument("--force", action="store_true")

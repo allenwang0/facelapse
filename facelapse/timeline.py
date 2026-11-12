@@ -74,10 +74,10 @@ def _year_boundaries(lo: float, hi: float) -> list[tuple[float, int]]:
 
 
 class TimelineRenderer:
-    def __init__(self, cfg, lo: float, hi: float):
+    def __init__(self, cfg, lo: float, hi: float, size: tuple[int, int] | None = None):
         self.cfg = cfg
         self.lo, self.hi = lo, hi
-        self.W, self.H = cfg.canvas_w, cfg.canvas_h
+        self.W, self.H = size or (cfg.canvas_w, cfg.canvas_h)
         self.band_h = int(self.H * cfg.timeline_band_frac)
         self.pad = int(self.W * 0.06)
         self.bar_y = self.H - int(self.band_h * 0.35)
