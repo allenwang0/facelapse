@@ -21,12 +21,12 @@ facelapse --config examples/balanced.config.json run ./my_photos
 
 ## Calibrating the identity margin
 
-After `facelapse score`, write a CSV that labels multi-face images from your archive: the image's `content_hash` (shown in `out/manifest.json` and the report) and the `face_id` that is you, or blank if you are not in it.
+After `facelapse score`, write a CSV that labels multi-face images from your archive: the image's path (or just its file name when that is unique) and the `face_id` that is you, or blank if you are not in it. The review page labels each face box in its ambiguous section with its `face_id`. A `content_hash` column works instead of `path`.
 
 ```text
-content_hash,me_face_id
-3f1c...,0
-9a2e...,
+path,me_face_id
+2019/IMG_2041.jpg,0
+2020/IMG_0815.jpg,
 ```
 
 Then:

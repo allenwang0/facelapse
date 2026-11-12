@@ -62,3 +62,21 @@ def test_calibrate_command_reads_labels_and_cache(tmp_path, capsys):
     out = capsys.readouterr().out
     assert '"id_margin"' in out
     assert "true accept rate 1.00" in out
+
+
+def test_labels_may_name_images_by_file_name(tmp_path, capsys):
+    db = tmp_path / "cache.db"
+    cache = Cache(str(db))
+    faces = [
+        make_face(content_hash="h0", face_id=0, id_sim=0.8),
+        make_face(content_hash="h0", face_id=1, id_sim=0.4),
+    ]
+    ts = Timestamp(None, TsSource.NONE)
+    cache.upsert_image(ImageRecord("h0", "/archive/2019/pair.jpg", 10, 10, ts, faces=faces))
+    cache.close()
+    labels = tmp_path / "labels.csv"
+    labels.write_text("path,me_face_id\npair.jpg,0\n")
+    cfg = tmp_path / "cfg.json"
+    cfg.write_text(json.dumps({"cache_db": str(db)}))
+    assert cli.main(["--config", str(cfg), "calibrate", str(labels)]) == 0
+    assert "1 images" in capsys.readouterr().out

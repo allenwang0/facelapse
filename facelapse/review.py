@@ -55,16 +55,16 @@ def _winner_card(f: Face, t: Thumb, date: object) -> str:
 def _ambiguous_card(faces: list[Face], t: Thumb, date: object) -> str:
     h, w = t.rgb.shape[:2]
     boxes, buttons = [], []
-    for rank, f in enumerate(faces, start=1):
+    for f in faces:
         x1, y1, x2, y2 = (float(v) * t.scale for v in f.bbox)
         style = (
             f"left:{100 * x1 / w:.2f}%;top:{100 * y1 / h:.2f}%;"
             f"width:{100 * (x2 - x1) / w:.2f}%;height:{100 * (y2 - y1) / h:.2f}%"
         )
-        boxes.append(f'<div class="box" style="{style}"><span>{rank}</span></div>')
+        boxes.append(f'<div class="box" style="{style}"><span>face {f.face_id}</span></div>')
         buttons.append(
             f'<button class="me" data-hash="{f.content_hash}" data-face="{f.face_id}">'
-            f"{rank}: this one is me (sim {_fmt(f.id_sim)})</button>"
+            f"face {f.face_id} is me (similarity {_fmt(f.id_sim)})</button>"
         )
     return f"""
     <div class="card amb">

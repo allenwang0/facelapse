@@ -171,8 +171,9 @@ def cmd_calibrate(args):
     triples = []
     with open(args.labels, newline="") as fh:
         for row in csv.DictReader(fh):
+            ch = row.get("content_hash") or cache.hash_for_path(row.get("path", ""))
             faces = sorted(
-                (f for f in cache.faces_of(row["content_hash"]) if f.id_sim is not None),
+                (f for f in cache.faces_of(ch or "") if f.id_sim is not None),
                 key=lambda f: f.id_sim,
                 reverse=True,
             )
@@ -292,7 +293,10 @@ def main(argv=None):
     s.add_argument("--out", default="verify.png")
     backend_option(s)
     s = command("calibrate", cmd_calibrate)
-    s.add_argument("labels", help="CSV with columns content_hash,me_face_id (blank if absent)")
+    s.add_argument(
+        "labels",
+        help="CSV with columns path (or content_hash) and me_face_id (blank if absent)",
+    )
     s.add_argument("--target-far", type=float, default=0.01, help="allowed false-accept rate")
     s = command("render", cmd_render)
     s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")

@@ -309,6 +309,15 @@ class Cache:
         )
         return {s: (k, t, json.loads(r)) for s, k, t, r in rows}
 
+    def hash_for_path(self, path: str) -> str | None:
+        """content_hash of the image stored at path, or whose path ends with
+        it (so a bare file name works when it is unique)."""
+        rows = self.db.execute(
+            "SELECT content_hash, path FROM images WHERE path=? OR path LIKE ?",
+            (path, "%/" + path),
+        ).fetchall()
+        return rows[0][0] if len(rows) == 1 else None
+
     def faces_of(self, content_hash: str) -> list[Face]:
         cur = self.db.execute("SELECT * FROM faces WHERE content_hash=?", (content_hash,))
         cols = [c[0] for c in cur.description]
