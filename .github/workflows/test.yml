@@ -30,4 +30,30 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: pytest -q --cov=facelapse --cov-report=term
+      - run: pytest -q --ignore=tests/e2e --cov=facelapse --cov-report=term --cov-fail-under=75
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,e2e]"
+      - run: playwright install --with-deps chromium
+      - run: pytest -q tests/e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-screenshots
+          path: artifacts/screenshots
+
+  macos-vision:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q tests/test_vision.py

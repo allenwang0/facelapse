@@ -44,3 +44,9 @@ files = ["facelapse/records.py", "facelapse/identity.py", "facelapse/bucketing.p
 strict = true
 follow_imports = "silent"
 ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["facelapse"]
+# wrappers around the optional ML libraries and the macOS-only helper;
+# they cannot run in the core test environment
+omit = ["facelapse/detection.py", "facelapse/__main__.py"]
