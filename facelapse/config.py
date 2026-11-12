@@ -31,8 +31,8 @@ class Config:
     # t_abs: minimum cosine similarity for "this could be me at all".
     # margin: required gap between best and second-best face in an image.
     # Both are model- and normalization-dependent. Do not trust these numbers.
-    id_t_abs: float = 0.34  # VERIFY: derive from your you-vs-you distribution
-    id_margin: float = 0.10  # VERIFY: derive from your you-vs-relatives distribution
+    id_t_abs: float = 0.34  # VERIFY (open): placeholder, derive from your photos
+    id_margin: float = 0.10  # VERIFY (open): `facelapse calibrate`
     id_reference_k: int = 3  # compare against k temporally-nearest references, take max
 
     # --- pose filter (roll is corrected in alignment, NOT filtered here) ---

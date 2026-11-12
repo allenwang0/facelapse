@@ -2,7 +2,7 @@
 face crop (not the whole image, that's wasteful). Feeds the geometric
 neutral backstops (EAR/MAR) and the optional nasion alignment point.
 
-# VERIFY: MediaPipe landmark indices below are the widely-used canonical
+# VERIFY (open; `facelapse verify` plots them): MediaPipe landmark indices below are the widely-used canonical
 # ones, but confirm against your installed mediapipe version by plotting
 # them on one of your own faces before trusting EAR/MAR thresholds.
 """
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
-# canonical MediaPipe FaceMesh indices (VERIFY on your version)
+# canonical MediaPipe FaceMesh indices (VERIFY, open: `facelapse verify` draws them)
 LEFT_EYE = dict(outer=33, inner=133, top=159, bottom=145)
 RIGHT_EYE = dict(outer=362, inner=263, top=386, bottom=374)
 MOUTH = dict(left=61, right=291, top=13, bottom=14)

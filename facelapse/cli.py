@@ -173,6 +173,34 @@ def cmd_calibrate(args):
     return 0
 
 
+def cmd_verify(args):
+    from . import ingest, verify
+
+    det, mesh = _backend(args)
+    if mesh is None:
+        try:
+            from .landmarks import FaceMesh
+
+            mesh = FaceMesh()
+        except RuntimeError as e:
+            print(f"[warn] {e}")
+    rgb = ingest.decode(Path(args.photo))
+    face, checks = verify.run_checks(det, rgb)
+    dense = None
+    if face is not None and mesh is not None:
+        x1, y1 = (max(0, int(v)) for v in face.bbox[:2])
+        dense = mesh.landmarks(pipeline._crop(rgb, face.bbox))
+        if dense is not None:
+            dense = dense + [x1, y1]
+    for c in checks:
+        status = {True: "pass", False: "FAIL", None: "inconclusive"}[c.passed]
+        print(f"[verify] {c.name:<15} {status:<12} {c.detail}")
+    if face is not None:
+        verify.write_png(rgb, face, dense, Path(args.out))
+        print(f"[verify] wrote {args.out}")
+    return 0 if all(c.passed is not False for c in checks) else 1
+
+
 def main(argv=None):
     # --config and --grain are accepted before or after the subcommand.
     # SUPPRESS keeps a subparser's unset copy from overwriting a value given
@@ -215,6 +243,10 @@ def main(argv=None):
     s = command("select", cmd_select)
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
     command("review", cmd_review)
+    s = command("verify", cmd_verify)
+    s.add_argument("photo", help="one of your own photos with a single clear face")
+    s.add_argument("--out", default="verify.png")
+    backend_option(s)
     s = command("calibrate", cmd_calibrate)
     s.add_argument("labels", help="CSV with columns content_hash,me_face_id (blank if absent)")
     s.add_argument("--target-far", type=float, default=0.01, help="allowed false-accept rate")

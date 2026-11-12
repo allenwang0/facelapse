@@ -12,7 +12,7 @@ from .records import Face
 
 def interocular_px(f: Face) -> float:
     """Distance between the two eye keypoints in image pixels. A direct proxy
-    for how much real facial detail exists. kps[0], kps[1] = eyes (VERIFY)."""
+    for how much real facial detail exists. kps[0], kps[1] = eyes (VERIFY, open: `facelapse verify` keypoint check)."""
     return float(np.linalg.norm(f.kps[0] - f.kps[1]))
 
 

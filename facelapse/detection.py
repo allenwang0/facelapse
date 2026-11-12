@@ -43,9 +43,11 @@ class FaceDetector:
         dets = self.app.get(bgr)
         faces: list[Face] = []
         for i, d in enumerate(dets):
-            kps = np.asarray(d.kps, dtype=np.float32)  # (5,2) # VERIFY order
+            kps = np.asarray(
+                d.kps, dtype=np.float32
+            )  # (5,2) # VERIFY order: `facelapse verify` keypoint check
             emb = np.asarray(d.normed_embedding, dtype=np.float32)  # L2-normalized
-            yaw, pitch, roll = _pose_triple(d)  # degrees # VERIFY
+            yaw, pitch, roll = _pose_triple(d)  # degrees # VERIFY: `facelapse verify` mirror/rotate
             faces.append(
                 Face(
                     content_hash=content_hash,
@@ -74,7 +76,8 @@ class FaceDetector:
 def _pose_triple(det) -> tuple[float, float, float]:
     """Return (yaw, pitch, roll) in degrees.
 
-    # VERIFY: insightface commonly exposes det.pose as (pitch, yaw, roll).
+    # VERIFY (open; `facelapse verify` mirror check): insightface commonly
+    # exposes det.pose as (pitch, yaw, roll).
     We remap to (yaw, pitch, roll). If pose is absent, fall back to NaN so
     the pose filter can decide policy rather than silently passing.
     """
@@ -84,5 +87,5 @@ def _pose_triple(det) -> tuple[float, float, float]:
     pose = np.asarray(pose, dtype=np.float32).ravel()
     if pose.shape[0] < 3:
         return float("nan"), float("nan"), float("nan")
-    pitch, yaw, roll = pose[0], pose[1], pose[2]  # VERIFY this ordering
+    pitch, yaw, roll = pose[0], pose[1], pose[2]  # VERIFY this ordering (open, see above)
     return float(yaw), float(pitch), float(roll)
