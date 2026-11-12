@@ -201,6 +201,18 @@ def cmd_verify(args):
     return 0 if all(c.passed is not False for c in checks) else 1
 
 
+def cmd_report(args):
+    from .report import write_report
+
+    try:
+        path = write_report(_cfg(args), thumbs=not args.no_thumbs, synthetic=args.synthetic)
+    except FileNotFoundError as e:
+        print(f"[report] error: {e}", file=sys.stderr)
+        return 1
+    print(f"[report] {path}")
+    return 0
+
+
 def main(argv=None):
     # --config and --grain are accepted before or after the subcommand.
     # SUPPRESS keeps a subparser's unset copy from overwriting a value given
@@ -243,6 +255,9 @@ def main(argv=None):
     s = command("select", cmd_select)
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
     command("review", cmd_review)
+    s = command("report", cmd_report)
+    s.add_argument("--no-thumbs", action="store_true", help="leave image thumbnails out")
+    s.add_argument("--synthetic", action="store_true", help="label the page as synthetic data")
     s = command("verify", cmd_verify)
     s.add_argument("photo", help="one of your own photos with a single clear face")
     s.add_argument("--out", default="verify.png")

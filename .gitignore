@@ -76,3 +76,4 @@ labels.csv
 .cache/
 tests/fixtures/photos/
 tests/fixtures/seeds/
+artifacts/

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>facelapse run report</title>
+<style>
+:root{--bg:#fbfbf9;--fg:#1d1d1b;--muted:#5f5f5a;--line:#d9d9d4;--panel:#ffffff;
+ --c1:#0072b2;--c2:#d55e00;--c3:#6b6b66;--bar:#0072b2;--bar2:#9cc6e4;--band:#f1efe8}
+@media (prefers-color-scheme: dark){:root{--bg:#141413;--fg:#ececea;--muted:#a3a39e;--line:#3a3a37;
+ --panel:#1d1d1b;--c1:#56b4e9;--c2:#e69f00;--c3:#a3a39e;--bar:#56b4e9;--bar2:#2b5d7d;--band:#262624}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif}
+main{max-width:960px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:8px 0 4px}
+h2{font-size:17px;margin:0}
+.banner{background:var(--band);border:1px solid var(--line);padding:8px 12px;border-radius:6px;margin:8px 0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}
+.note{color:var(--muted);margin:2px 0 10px}
+.empty{color:var(--muted);font-style:italic}
+svg{width:100%;height:auto;display:block;overflow:visible}
+svg text{fill:var(--fg);font-size:12px}
+svg .muted{fill:var(--muted)}
+.axis{stroke:var(--line)}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
+.controls label{display:block;font-size:13px}
+.controls input{width:100%}
+.counts{font-variant-numeric:tabular-nums}
+#detail,#align-detail,#funnel-detail{min-height:1.5em;color:var(--muted);font-size:13px}
+#detail img{width:96px;border-radius:4px;vertical-align:middle;margin-right:8px}
+button{font:inherit;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:var(--band);color:var(--fg);cursor:pointer}
+code{font-size:12px;word-break:break-all}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted)}
+@media (max-width:600px){.controls{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>facelapse run report</h1>
+<div id="banner"></div>
+<section id="v-funnel"><h2>Which stage removed my photos?</h2><p class="note" id="funnel-note"></p>
+ <div id="funnel"></div><div id="funnel-detail">Hover or tap a bar for its top rejection reasons.</div></section>
+<section id="v-calib"><h2>Are id_t_abs and id_margin in the right place?</h2><p class="note" id="calib-note"></p>
+ <div id="calib-body"></div></section>
+<section id="v-coverage"><h2>Where are the gaps in my timeline?</h2><p class="note" id="coverage-note"></p>
+ <div id="coverage"></div><p class="note">Drag across the chart to zoom; double-click to reset.</p></section>
+<section id="v-align"><h2>Is the face steady?</h2><p class="note" id="align-note"></p>
+ <div id="align"></div><div id="align-detail"></div></section>
+<section id="v-prov"><h2>How much of the timeline rests on weak dates?</h2><p class="note" id="prov-note"></p>
+ <div id="prov"></div><p class="note">Hatched segments are dated by filename or file mtime.</p></section>
+</main>
+<script>
+const D = /*DATA*/null;
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function svg(host, w, h) { host.innerHTML = ""; return el("svg", {viewBox: `0 0 ${w} ${h}`, role: "img"}, host); }
+function empty(id, msg) { document.getElementById(id).innerHTML = `<p class="empty">${msg}</p>`; }
+function note(id, text) { document.getElementById(id).textContent = text || ""; }
+const widthOf = id => Math.max(320, Math.min(900, document.getElementById(id).clientWidth || 640));
+const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+
+if (D.banner) document.getElementById("banner").innerHTML = `<div class="banner">${D.banner}</div>`;
+
+/* 1. funnel */
+(function () {
+  note("funnel-note", D.funnel_note);
+  if (!D.funnel.length) return empty("funnel", "Run facelapse analyze to fill the funnel.");
+  const W = widthOf("funnel"), row = 30, left = 112, H = D.funnel.length * row + 24;
+  const s = svg(document.getElementById("funnel"), W, H);
+  const max = Math.max(...D.funnel.map(r => r.total || r.kept), 1);
+  const scale = v => (W - left - 118) * v / max;
+  D.funnel.forEach((r, i) => {
+    const y = i * row + 4;
+    el("text", {x: left - 8, y: y + 17, "text-anchor": "end"}, s, r.stage);
+    const bar = el("rect", {x: left, y: y + 4, width: Math.max(1, scale(r.kept)), height: row - 10, fill: "var(--bar)", rx: 2}, s);
+    el("text", {x: left + scale(r.kept) + 6, y: y + 17, class: "muted"}, s,
+       `${r.kept.toLocaleString()} (${pct(r.kept, r.total)}%)`);
+    const show = () => {
+      const why = r.reasons.length ? r.reasons.map(([k, n]) => `${k}: ${n}`).join("; ") : "nothing removed";
+      document.getElementById("funnel-detail").textContent = `${r.stage}: ${why}`;
+    };
+    bar.addEventListener("mouseenter", show); bar.addEventListener("click", show);
+  });
+  el("line", {x1: left, x2: left, y1: 0, y2: H - 20, class: "axis"}, s);
+  el("text", {x: left, y: H - 4, class: "muted"}, s, "kept (count, % of previous stage)");
+})();
+
+/* 2. calibration explorer */
+/*RULE*/
+function outcomeOf(top, gap, tAbs, margin) {
+  if (top < tAbs) return "none";
+  if (gap < margin) return "ambiguous";
+  return "confident";
+}
+/*END RULE*/
+(function () {
+  if (!D.has_seeds) return empty("calib-body", "Run facelapse seed add first.");
+  if (!D.points.length) return empty("calib-body", "Run facelapse score to place images on this chart.");
+  const host = document.getElementById("calib-body");
+  host.innerHTML = `<div class="controls">
+    <label>id_t_abs <span id="t-val"></span><input id="t" type="range" min="0" max="1" step="0.01"></label>
+    <label>id_margin <span id="m-val"></span><input id="m" type="range" min="0" max="1" step="0.005"></label></div>
+    <div class="legend"><span>&#9679; confident</span><span>&#9650; ambiguous</span><span>&#10005; none</span>
+    <span class="counts" id="calib-counts"></span></div><div id="scatter"></div><div id="detail"></div>
+    <p><button id="copy">Copy config</button> <code id="snippet"></code></p>`;
+  const t = document.getElementById("t"), m = document.getElementById("m");
+  t.value = D.thresholds.t_abs; m.value = D.thresholds.margin;
+  const W = widthOf("calib-body"), H = 380, L = 54, B = 44, T = 10, R = 10;
+  const x = v => L + (W - L - R) * Math.max(0, Math.min(1, v));
+  const y = v => H - B - (H - B - T) * Math.max(0, Math.min(1, v));
+  const s = svg(document.getElementById("scatter"), W, H);
+  for (const v of [0, 0.25, 0.5, 0.75, 1]) {
+    el("text", {x: x(v), y: H - B + 16, "text-anchor": "middle", class: "muted"}, s, v);
+    el("text", {x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "muted"}, s, v);
+  }
+  el("text", {x: (L + W) / 2, y: H - 6, "text-anchor": "middle"}, s, "top face similarity to seeds (cosine)");
+  el("text", {x: 12, y: (H - B) / 2, transform: `rotate(-90 12 ${(H - B) / 2})`, "text-anchor": "middle"}, s,
+     "margin over runner-up (cosine)");
+  el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis"}, s);
+  el("line", {x1: L, x2: L, y1: T, y2: H - B, class: "axis"}, s);
+  const vline = el("line", {stroke: "var(--fg)", "stroke-dasharray": "5 4", y1: T, y2: H - B}, s);
+  const hline = el("line", {stroke: "var(--fg)", "stroke-dasharray": "5 4", x2: W - R}, s);
+  const color = {confident: "var(--c1)", ambiguous: "var(--c2)", none: "var(--c3)"};
+  const marks = D.points.map(p => {
+    const g = el("g", {transform: `translate(${x(p.top)},${y(p.gap)})`, tabindex: 0}, s);
+    g.addEventListener("click", () => {
+      const img = p.thumb ? `<img src="${p.thumb}" alt="">` : "";
+      document.getElementById("detail").innerHTML =
+        `${img}${p.file}: similarity ${p.top.toFixed(3)}, margin ${p.faces > 1 ? p.gap.toFixed(3) : "single face"}`;
+    });
+    return {p, g};
+  });
+  function draw() {
+    const tv = +t.value, mv = +m.value, n = {confident: 0, ambiguous: 0, none: 0};
+    document.getElementById("t-val").textContent = tv.toFixed(2);
+    document.getElementById("m-val").textContent = mv.toFixed(3);
+    vline.setAttribute("x1", x(tv)); vline.setAttribute("x2", x(tv));
+    hline.setAttribute("x1", x(tv)); hline.setAttribute("y1", y(mv)); hline.setAttribute("y2", y(mv));
+    for (const {p, g} of marks) {
+      const o = outcomeOf(p.top, p.gap, tv, mv); n[o]++;
+      g.innerHTML = "";
+      const c = color[o];
+      if (o === "confident") el("circle", {r: 4.5, fill: c}, g);
+      else if (o === "ambiguous") el("path", {d: "M0,-6 L5.5,4 L-5.5,4 Z", fill: c}, g);
+      else el("path", {d: "M-4,-4 L4,4 M4,-4 L-4,4", stroke: c, "stroke-width": 2}, g);
+    }
+    document.getElementById("calib-counts").textContent =
+      `confident ${n.confident}, ambiguous ${n.ambiguous}, none ${n.none}`;
+    note("calib-note", `At these thresholds ${n.confident} of ${D.points.length} images are confident ` +
+      `and ${n.ambiguous} go to review. Single-face images sit on the top edge.`);
+    document.getElementById("snippet").textContent =
+      JSON.stringify({id_t_abs: +tv.toFixed(3), id_margin: +mv.toFixed(3)});
+  }
+  t.addEventListener("input", draw); m.addEventListener("input", draw);
+  document.getElementById("copy").addEventListener("click", () =>
+    navigator.clipboard && navigator.clipboard.writeText(document.getElementById("snippet").textContent));
+  draw();
+})();
+
+/* 3. coverage */
+(function () {
+  if (!D.has_selected) return empty("coverage", "Run facelapse select to see coverage.");
+  note("coverage-note", D.coverage_note);
+  const rows = D.coverage.map(r => ({...r, t: Date.parse(r.start)}));
+  const day = 864e5, span = {day: 1, week: 7, month: 30}[D.grain] * day;
+  const full = [Math.min(...rows.map(r => r.t)), Math.max(...rows.map(r => r.t)) + span];
+  let dom = full.slice();
+  const W = widthOf("coverage"), H = 220, L = 40, B = 40, T = 14, R = 10;
+  const host = document.getElementById("coverage");
+  function draw() {
+    const s = svg(host, W, H);
+    const maxN = Math.max(...rows.map(r => r.n), 1);
+    const x = v => L + (W - L - R) * (v - dom[0]) / (dom[1] - dom[0]);
+    const y = v => H - B - (H - B - T) * v / maxN;
+    for (const r of rows) {
+      if (r.t + span < dom[0] || r.t > dom[1]) continue;
+      const w = Math.max(1.5, x(r.t + span) - x(r.t) - 1);
+      el("rect", {x: x(r.t), y: y(r.n), width: w, height: H - B - y(r.n), fill: "var(--bar2)"}, s);
+      if (r.winner) el("circle", {cx: x(r.t) + w / 2, cy: y(r.n) - 6, r: 3, fill: "var(--c1)"}, s);
+    }
+    const y0 = new Date(dom[0]).getUTCFullYear(), y1 = new Date(dom[1]).getUTCFullYear();
+    const every = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
+    for (let yr = y0; yr <= y1 + 1; yr += every) {
+      const tx = Date.UTC(yr, 0, 1);
+      if (tx < dom[0] || tx > dom[1]) continue;
+      el("line", {x1: x(tx), x2: x(tx), y1: H - B, y2: H - B + 5, class: "axis"}, s);
+      el("text", {x: x(tx), y: H - B + 18, "text-anchor": "middle", class: "muted"}, s, yr);
+    }
+    el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis"}, s);
+    el("text", {x: L - 6, y: y(maxN) + 4, "text-anchor": "end", class: "muted"}, s, maxN);
+    el("text", {x: L - 6, y: H - B + 4, "text-anchor": "end", class: "muted"}, s, 0);
+    el("text", {x: L, y: H - 4, class: "muted"}, s, `photos per ${D.grain}; dot = has a winner`);
+    let start = null;
+    const brush = el("rect", {y: T, height: H - B - T, fill: "var(--c1)", opacity: 0.15, width: 0}, s);
+    const toData = ev => {
+      const pt = s.getBoundingClientRect();
+      const px = (ev.clientX - pt.left) * W / pt.width;
+      return dom[0] + (px - L) / (W - L - R) * (dom[1] - dom[0]);
+    };
+    s.addEventListener("pointerdown", ev => { start = toData(ev); });
+    s.addEventListener("pointermove", ev => {
+      if (start === null) return;
+      const a = x(Math.min(start, toData(ev))), b = x(Math.max(start, toData(ev)));
+      brush.setAttribute("x", a); brush.setAttribute("width", b - a);
+    });
+    s.addEventListener("pointerup", ev => {
+      const end = toData(ev);
+      if (start !== null && Math.abs(end - start) > span) dom = [Math.min(start, end), Math.max(start, end)];
+      start = null; draw();
+    });
+    s.addEventListener("dblclick", () => { dom = full.slice(); draw(); });
+  }
+  draw();
+})();
+
+/* 4. alignment stability */
+(function () {
+  if (!D.has_selected) return empty("align", "Run facelapse select, then facelapse render.");
+  if (!D.alignment) return empty("align", "Run facelapse render to measure alignment.");
+  note("align-note", D.alignment_note);
+  const rows = D.alignment;
+  if (!rows.length) return;
+  const W = widthOf("align"), H = 240, L = 44, B = 40, T = 12, R = 70;
+  const s = svg(document.getElementById("align"), W, H);
+  const maxV = Math.max(0.5, ...rows.map(r => Math.max(r.raw, r.smooth)));
+  const n = Math.max(rows.length - 1, 1);
+  const x = i => L + (W - L - R) * i / n, y = v => H - B - (H - B - T) * v / maxV;
+  for (const [key, dash, label] of [["raw", "6 4", "raw"], ["smooth", "", "smoothed"]]) {
+    const d = rows.map((r, i) => `${i ? "L" : "M"}${x(i)},${y(r[key])}`).join("");
+    el("path", {d, fill: "none", stroke: "var(--fg)", "stroke-width": 1.6, "stroke-dasharray": dash}, s);
+    el("text", {x: x(rows.length - 1) + 6, y: y(rows[rows.length - 1][key]) + 4}, s, label);
+  }
+  el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis"}, s);
+  el("text", {x: L - 6, y: y(maxV) + 4, "text-anchor": "end", class: "muted"}, s, maxV.toFixed(1));
+  el("text", {x: L - 6, y: H - B + 4, "text-anchor": "end", class: "muted"}, s, "0");
+  el("text", {x: L, y: H - B + 18, class: "muted"}, s, "1");
+  el("text", {x: W - R, y: H - B + 18, "text-anchor": "end", class: "muted"}, s, rows.length);
+  el("text", {x: (L + W - R) / 2, y: H - 4, "text-anchor": "middle"}, s, "frame index");
+  el("text", {x: 10, y: (H - B) / 2, transform: `rotate(-90 10 ${(H - B) / 2})`, "text-anchor": "middle"}, s,
+     "eye-midpoint offset (px)");
+  const hit = el("rect", {x: L, y: T, width: W - L - R, height: H - B - T, fill: "transparent"}, s);
+  hit.addEventListener("pointermove", ev => {
+    const b = s.getBoundingClientRect();
+    const i = Math.round(((ev.clientX - b.left) * W / b.width - L) / (W - L - R) * n);
+    const r = rows[Math.max(0, Math.min(rows.length - 1, i))];
+    document.getElementById("align-detail").textContent =
+      `frame ${r.i + 1}, ${r.date}, ${r.file}: raw ${r.raw} px, smoothed ${r.smooth} px`;
+  });
+})();
+
+/* 5. date provenance */
+(function () {
+  if (!D.has_selected) return empty("prov", "Run facelapse select to see date sources.");
+  note("prov-note", D.provenance_note);
+  const order = [["TAKEOUT_JSON", "Takeout", 0], ["EXIF_ORIGINAL", "EXIF original", 0],
+                 ["EXIF_DIGITIZED", "EXIF digitized", 0], ["FILENAME", "filename", 1], ["MTIME", "mtime", 1]];
+  const total = Object.values(D.provenance).reduce((a, b) => a + b, 0);
+  const W = widthOf("prov"), H = 92, L = 0;
+  const s = svg(document.getElementById("prov"), W, H);
+  const defs = el("defs", {}, s);
+  const pat = el("pattern", {id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)"}, defs);
+  el("rect", {width: 6, height: 6, fill: "var(--bar2)"}, pat);
+  el("line", {x1: 0, y1: 0, x2: 0, y2: 6, stroke: "var(--fg)", "stroke-width": 2}, pat);
+  let x0 = L;
+  order.forEach(([key, label, weak], i) => {
+    const n = D.provenance[key] || 0;
+    if (!n) return;
+    const w = (W - L) * n / total;
+    el("rect", {x: x0, y: 4, width: w, height: 34, fill: weak ? "url(#hatch)" : "var(--bar)",
+                stroke: "var(--panel)", "stroke-width": 1}, s);
+    el("text", {x: Math.min(x0 + 2, W - 120), y: 56 + (i % 2) * 16, class: "muted"}, s, `${label} ${n}`);
+    x0 += w;
+  });
+  el("text", {x: 0, y: H - 2, class: "muted"}, s, "winners by date source; hatched = weaker");
+})();
+</script>
+</body>
+</html>

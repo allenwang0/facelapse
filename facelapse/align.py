@@ -93,3 +93,12 @@ def warp(rgb: np.ndarray, params: SimilarityParams, cfg) -> np.ndarray:
         flags=cv2.INTER_CUBIC,
         borderMode=cv2.BORDER_REPLICATE,
     )
+
+
+def eye_deviation(f: Face, params: SimilarityParams, cfg) -> float:
+    """Distance in canvas pixels between where this transform puts the eye
+    midpoint and the canonical eye midpoint. Zero for a 2-point fit."""
+    M = params.matrix()
+    mid = (f.kps[0].astype(np.float64) + f.kps[1]) / 2
+    target = (np.array(cfg.left_eye_xy) + np.array(cfg.right_eye_xy)) / 2
+    return float(np.linalg.norm(M[:, :2] @ mid + M[:, 2] - target))

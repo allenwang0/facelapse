@@ -267,7 +267,9 @@ class SyntheticMesh:
         d[L.MOUTH["right"]] = m.corners[1]
         d[L.MOUTH["top"]] = m.mouth - 0.02 * iod * v
         d[L.MOUTH["bottom"]] = m.mouth + 0.02 * iod * v
-        d[L.NASION] = mid - 0.15 * iod * v
+        # the nose bridge sits above the eye line and shifts sideways with yaw,
+        # so a 3-point fit is pulled off the eyes the way a real one is
+        d[L.NASION] = mid - 0.15 * iod * v + 0.3 * float((m.nose - mid) @ u) * u
         return d
 
 

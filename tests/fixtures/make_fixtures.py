@@ -121,7 +121,7 @@ def make(out: Path) -> None:
         _save_jpeg(photos / f"{name}_{i}.jpg", _photo(rng, when, **kw), when)
 
     for i in range(3):
-        when = datetime(2017 + 2 * i, 9, 9, 15)
+        when = datetime(YEARS[1 + 2 * i], 9, 9, 15)
         img = _photo(rng, when, cx=330.0)
         _companion(img, "twin", rng)
         _save_jpeg(photos / f"with_twin_{i}.jpg", img, when)
@@ -131,7 +131,7 @@ def make(out: Path) -> None:
         _companion(img, "stranger", rng)
         _save_jpeg(photos / f"with_friend_{i}.jpg", img, when)
     for i in range(3):
-        when = datetime(2016 + 3 * i, 7, 7, 9)
+        when = datetime(YEARS[3 * i], 7, 7, 9)
         _save_jpeg(photos / f"friend_only_{i}.jpg", _photo(rng, when, identity="stranger"), when)
 
     # a re-saved copy: different bytes, same picture, later date

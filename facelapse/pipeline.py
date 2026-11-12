@@ -299,9 +299,9 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
     cache.close()
     winners.sort(key=lambda f: ts_of[f.content_hash].value)
 
-    params_seq = [align_mod.estimate(f, cfg) for f in winners]
+    raw_params = [align_mod.estimate(f, cfg) for f in winners]
     params_seq = smoothing.smooth_params(
-        params_seq,
+        raw_params,
         [f.kps[:2] for f in winners],
         (cfg.left_eye_xy, cfg.right_eye_xy),
         cfg.smooth_window,
@@ -349,8 +349,10 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
             "neutral_penalty": f.neutral_penalty,
             "id_sim": f.id_sim,
             "id_margin": f.id_margin,
+            "eye_dev_raw_px": align_mod.eye_deviation(f, raw, cfg),
+            "eye_dev_smoothed_px": align_mod.eye_deviation(f, smooth, cfg),
         }
-        for f in winners
+        for f, raw, smooth in zip(winners, raw_params, params_seq)
     ]
     result = render.render_video(frames(), dates, confident, rows, cfg)
     cache = Cache(cfg.cache_db)
