@@ -12,6 +12,7 @@ whether a frame is real or interpolated.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -28,7 +29,7 @@ def _even(frame: np.ndarray) -> np.ndarray:
 
 
 def render_video(
-    frames: list[np.ndarray],
+    frames: Iterable[np.ndarray],
     dates: list[datetime],
     confident: list[bool],
     manifest_rows: list[dict],
@@ -39,10 +40,10 @@ def render_video(
     video_path = out_dir / "timelapse.mp4"
     manifest_path = out_dir / "manifest.json"
 
-    if cfg.draw_timeline:
+    tl = None
+    if cfg.draw_timeline and dates:
         lo, hi = robust_range(dates, confident, cfg.date_range_percentiles)
         tl = TimelineRenderer(cfg, lo, hi)
-        frames = [tl.draw(f, dt, c) for f, dt, c in zip(frames, dates, confident)]
 
     writer = imageio.get_writer(
         video_path,
@@ -52,7 +53,9 @@ def render_video(
         macro_block_size=1,
     )
     prev = None
-    for f in frames:
+    for f, dt, c in zip(frames, dates, confident):
+        if tl is not None:
+            f = tl.draw(f, dt, c)
         f = _even(f)
         if cfg.crossfade_frames > 0 and prev is not None:
             for a in np.linspace(0, 1, cfg.crossfade_frames + 2)[1:-1]:
@@ -63,7 +66,7 @@ def render_video(
     writer.close()
 
     manifest = {
-        "n_frames": len(frames),
+        "n_frames": len(manifest_rows),
         "fps": cfg.fps,
         "bucket_grain": cfg.bucket_grain,
         "frames": manifest_rows,

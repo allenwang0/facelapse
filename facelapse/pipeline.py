@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import imagehash
 import numpy as np
 
 try:
@@ -99,6 +100,7 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
                     dense[:, 1] += max(0, int(f.bbox[1]))
                     f.dense = dense
         cache.upsert_image(ImageRecord(ch, str(path), rgb.shape[1], rgb.shape[0], ts, faces=faces))
+        cache.set_phash(ch, str(dedup.phash(rgb)))
         n_img += 1
         n_face += len(faces)
     _log("analyze(images)", n_img, n_img)
@@ -192,10 +194,15 @@ def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
     _log("size+gates", len(gated), len(self_faces))
 
     # dedup across the gated set (re-saved copies)
+    # pHash is stored by analyze; caches from before that column are filled here once
     hashes = {}
     for f in gated:
-        rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
-        hashes[f.content_hash] = dedup.phash(rgb)
+        stored = cache.phash(f.content_hash)
+        if stored is None:
+            rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
+            stored = str(dedup.phash(rgb))
+            cache.set_phash(f.content_hash, stored)
+        hashes[f.content_hash] = imagehash.hex_to_hash(stored)
     canon = dedup.group_duplicates(hashes, cfg.phash_hamming_dup_below)
     seen, deduped = set(), []
     for f in gated:
@@ -223,21 +230,21 @@ def select(cfg: Config, allow_mtime_dates: bool = False) -> list:
 
 # ---------------------------------------------------------------- render
 def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
+    """Two streaming passes, so peak memory does not grow with frame count.
+    Pass 1 (photometric modes only) warps each frame to measure its mean
+    luminance and keeps nothing else; pass 2 decodes, warps, normalizes,
+    overlays and encodes one frame at a time."""
     cache = Cache(cfg.cache_db)
     winners = cache.all_faces(only_selected=True)
     rejects = rejects or set()
     winners = [f for f in winners if f.content_hash not in rejects]
 
     ts_of = {f.content_hash: cache.image_ts(f.content_hash) for f in winners}
+    paths = {f.content_hash: cache.image_path(f.content_hash) for f in winners}
+    cache.close()
     winners.sort(key=lambda f: ts_of[f.content_hash].value)
 
-    # First pass: estimate alignment parameters (lightweight)
-    params_seq = []
-    for f in tqdm(winners, desc="Estimating alignment", unit="frame", disable=len(winners) < 20):
-        rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
-        params_seq.append(align_mod.estimate(f, cfg))
-
-    # Smooth parameters across the sequence
+    params_seq = [align_mod.estimate(f, cfg) for f in winners]
     params_seq = smoothing.smooth_params(
         params_seq,
         [f.kps[:2] for f in winners],
@@ -245,43 +252,53 @@ def render_final(cfg: Config, rejects: set[str] | None = None) -> dict:
         cfg.smooth_window,
     )
 
-    # Second pass: decode, warp, build frames (streaming - don't accumulate raw images)
-    frames, dates, confident, rows = [], [], [], []
-    for f, p in tqdm(
-        list(zip(winners, params_seq)),
-        desc="Warping frames",
-        unit="frame",
-        disable=len(winners) < 20,
-    ):
-        rgb = ingest.decode(Path(cache.image_path(f.content_hash)))
-        frames.append(align_mod.warp(rgb, p, cfg))
-        ts = ts_of[f.content_hash]
-        dates.append(ts.value)
-        confident.append(ts.confidence == "high")
-        rows.append(
-            {
-                "content_hash": f.content_hash,
-                "path": cache.image_path(f.content_hash),
-                "date": ts.value.isoformat() if ts.value else None,
-                "date_source": ts.source.name,
-                "date_confidence": ts.confidence,
-                "bucket": f.bucket,
-                "composite": f.composite,
-                "yaw": f.yaw,
-                "pitch": f.pitch,
-                "neutral_penalty": f.neutral_penalty,
-                "id_sim": f.id_sim,
-                "id_margin": f.id_margin,
-            }
-        )
+    def warped(i: int) -> np.ndarray:
+        rgb = ingest.decode(Path(paths[winners[i].content_hash]))
+        return align_mod.warp(rgb, params_seq[i], cfg)
 
-    if cfg.photometric_mode != "none" and frames:
-        ref = photometric.choose_reference(frames)
-        frames = [photometric.normalize(fr, ref, cfg.photometric_mode) for fr in frames]
+    ref = None
+    if cfg.photometric_mode != "none" and winners:
+        lums = [
+            photometric.luminance(warped(i))
+            for i in tqdm(
+                range(len(winners)),
+                desc="Measuring exposure",
+                unit="frame",
+                disable=len(winners) < 20,
+            )
+        ]
+        ref = warped(photometric.median_index(lums))
 
-    result = render.render_video(frames, dates, confident, rows, cfg)
-    _log("render", len(frames), len(winners))
-    cache.close()
+    def frames():
+        for i in tqdm(
+            range(len(winners)), desc="Rendering", unit="frame", disable=len(winners) < 20
+        ):
+            frame = warped(i)
+            if ref is not None:
+                frame = photometric.normalize(frame, ref, cfg.photometric_mode)
+            yield frame
+
+    dates = [ts_of[f.content_hash].value for f in winners]
+    confident = [ts_of[f.content_hash].confidence == "high" for f in winners]
+    rows = [
+        {
+            "content_hash": f.content_hash,
+            "path": paths[f.content_hash],
+            "date": ts_of[f.content_hash].value.isoformat(),
+            "date_source": ts_of[f.content_hash].source.name,
+            "date_confidence": ts_of[f.content_hash].confidence,
+            "bucket": f.bucket,
+            "composite": f.composite,
+            "yaw": f.yaw,
+            "pitch": f.pitch,
+            "neutral_penalty": f.neutral_penalty,
+            "id_sim": f.id_sim,
+            "id_margin": f.id_margin,
+        }
+        for f in winners
+    ]
+    result = render.render_video(frames(), dates, confident, rows, cfg)
+    _log("render", len(rows), len(winners))
     return result
 
 

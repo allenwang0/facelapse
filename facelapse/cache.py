@@ -69,6 +69,7 @@ MIGRATIONS = [
         PRIMARY KEY (content_hash, face_id)
     );
     """,
+    "ALTER TABLE images ADD COLUMN phash TEXT;",
 ]
 
 
@@ -182,6 +183,15 @@ class Cache:
             "SELECT content_hash FROM images WHERE id_outcome=? ORDER BY ts_iso", (outcome,)
         )
         return [r[0] for r in rows]
+
+    def phash(self, content_hash: str) -> str | None:
+        r = self.db.execute("SELECT phash FROM images WHERE content_hash=?", (content_hash,))
+        row = r.fetchone()
+        return row[0] if row else None
+
+    def set_phash(self, content_hash: str, value: str) -> None:
+        with self.db:
+            self.db.execute("UPDATE images SET phash=? WHERE content_hash=?", (value, content_hash))
 
     def faces_of(self, content_hash: str) -> list[Face]:
         cur = self.db.execute("SELECT * FROM faces WHERE content_hash=?", (content_hash,))

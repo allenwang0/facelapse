@@ -15,10 +15,13 @@ import cv2
 import numpy as np
 
 
-def choose_reference(frames: list[np.ndarray]) -> np.ndarray:
-    lums = [cv2.cvtColor(f, cv2.COLOR_RGB2GRAY).mean() for f in frames]
-    idx = int(np.argsort(lums)[len(lums) // 2])
-    return frames[idx]
+def luminance(frame: np.ndarray) -> float:
+    return float(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY).mean())
+
+
+def median_index(lums: list[float]) -> int:
+    """Index of the median-luminance frame, the normalization reference."""
+    return int(np.argsort(lums)[len(lums) // 2])
 
 
 def _match_channel(src: np.ndarray, ref: np.ndarray) -> np.ndarray:
