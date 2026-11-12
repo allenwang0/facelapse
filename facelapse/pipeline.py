@@ -12,11 +12,14 @@ Silent starvation is the main failure mode of this kind of pipeline.
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 from pathlib import Path
 
 import imagehash
 import numpy as np
+from PIL import Image
 
 try:
     from tqdm import tqdm
@@ -66,9 +69,13 @@ def _log(
 
 
 # ---------------------------------------------------------------- analyze
-def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = False) -> None:
+def analyze(
+    folders: str | list[str], cfg: Config, detector=None, mesh=None, force: bool = False
+) -> None:
     """Expensive inference pass. Requires the ML deps. Detector/mesh injected
-    so tests can stub them."""
+    so tests can stub them. folders may mix folders and Takeout .zip files."""
+    if isinstance(folders, str):
+        folders = [folders]
     if detector is None:
         from .detection import FaceDetector
 
@@ -86,32 +93,25 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
             )
 
     cache = Cache(cfg.cache_db)
-    # Count total images first for progress bar
-    image_paths = list(ingest.iter_images(folder, cfg.image_exts))
+    sources = list(ingest.iter_sources(folders, cfg.image_exts))
     n_img = n_face = 0
-    for path in tqdm(image_paths, desc="Analyzing images", unit="img"):
-        try:
-            ch = ingest.content_hash(path)
-        except ValueError as e:
-            ch = ingest.path_key(path)
-            cache.upsert_image(
-                ImageRecord(
-                    ch, str(path), 0, 0, timestamps.resolve(path), decoded_ok=False, error=str(e)
-                )
-            )
+    for src in tqdm(sources, desc="Analyzing images", unit="img"):
+        err = ingest.too_large(src.size)
+        if err:
+            ts = timestamps.resolve_from(src.name, Path(src.ref), src.sidecar, src.mtime)
+            ch = ingest.ref_key(src.ref, src.size)
+            cache.upsert_image(ImageRecord(ch, src.ref, 0, 0, ts, decoded_ok=False, error=err))
             continue
+        data = src.read()
+        ch = hashlib.sha256(data).hexdigest()
         if cache.has_image(ch) and not force:
             continue
+        ts = timestamps.resolve_from(src.name, io.BytesIO(data), src.sidecar, src.mtime)
         try:
-            rgb = ingest.decode(path)
+            rgb = ingest.decode_image(Image.open(io.BytesIO(data)), src.name)
         except ingest.DECODE_ERRORS as e:
-            cache.upsert_image(
-                ImageRecord(
-                    ch, str(path), 0, 0, timestamps.resolve(path), decoded_ok=False, error=str(e)
-                )
-            )
+            cache.upsert_image(ImageRecord(ch, src.ref, 0, 0, ts, decoded_ok=False, error=str(e)))
             continue
-        ts = timestamps.resolve(path)
         faces = detector.analyze(rgb, ch)
         for f in faces:
             f.interocular_px = quality.interocular_px(f)
@@ -123,7 +123,7 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
                     dense[:, 0] += max(0, int(f.bbox[0]))  # back to image coords
                     dense[:, 1] += max(0, int(f.bbox[1]))
                     f.dense = dense
-        cache.upsert_image(ImageRecord(ch, str(path), rgb.shape[1], rgb.shape[0], ts, faces=faces))
+        cache.upsert_image(ImageRecord(ch, src.ref, rgb.shape[1], rgb.shape[0], ts, faces=faces))
         cache.set_phash(ch, str(dedup.phash(rgb)))
         n_img += 1
         n_face += len(faces)

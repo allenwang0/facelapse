@@ -69,7 +69,7 @@ def cmd_seed(args):
 
 def cmd_analyze(args):
     det, mesh = _backend(args)
-    pipeline.analyze(args.folder, _cfg(args), detector=det, mesh=mesh, force=args.force)
+    pipeline.analyze(args.sources, _cfg(args), detector=det, mesh=mesh, force=args.force)
 
 
 def _au_scorer(args):
@@ -146,7 +146,7 @@ def _load_rejects(path: str | None) -> set[str]:
 def cmd_run(args):
     cfg = _cfg(args)
     det, mesh = _backend(args)
-    pipeline.analyze(args.folder, cfg, detector=det, mesh=mesh, force=args.force)
+    pipeline.analyze(args.sources, cfg, detector=det, mesh=mesh, force=args.force)
     pipeline.score(cfg, au_scorer=_au_scorer(args), single_person=args.single_person)
     pipeline.select(cfg, allow_mtime_dates=args.allow_mtime_dates)
     result = pipeline.render_final(cfg, rejects=_load_rejects(args.rejects))
@@ -261,7 +261,7 @@ def main(argv=None):
     s.add_argument("paths", nargs="+")
     backend_option(s)
     s = command("analyze", cmd_analyze)
-    s.add_argument("folder")
+    s.add_argument("sources", nargs="+", help="photo folders and/or Takeout .zip files")
     s.add_argument("--force", action="store_true")
     backend_option(s)
     s = command("score", cmd_score)
@@ -288,7 +288,7 @@ def main(argv=None):
     s.add_argument("--gif", action="store_true", help="also write a looping timelapse.gif")
     s.add_argument("--seconds", type=float, help="fixed length; fps follows, 1 s end hold")
     s = command("run", cmd_run)
-    s.add_argument("folder")
+    s.add_argument("sources", nargs="+", help="photo folders and/or Takeout .zip files")
     s.add_argument("--force", action="store_true")
     backend_option(s)
     s.add_argument("--no-au", action="store_true")
