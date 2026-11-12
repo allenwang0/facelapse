@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "repo": "facelapse",
-  "sha": "a58eab2cae3f8d4f1244eb8125d8f7846b6e5653",
-  "generated_at": "2026-11-12T05:54:12Z",
+  "sha": "446ba38051218e39e817a7529ab5872b715997d2",
+  "generated_at": "2026-11-12T06:04:06Z",
   "command": "python scripts/make_card.py",
   "data_note": "Synthetic: 60 generated photos of drawn faces with stubbed detection, 2016-2024, fixture seed 2026; 36 frames selected.",
   "metric": {
