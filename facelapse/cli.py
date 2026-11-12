@@ -29,14 +29,24 @@ def _cfg(args) -> Config:
     return cfg
 
 
+def _backend(args):
+    """(detector, mesh) for --backend. mesh None lets analyze try MediaPipe."""
+    if args.backend == "synthetic":
+        from .synthetic import SyntheticDetector, SyntheticMesh
+
+        return SyntheticDetector(), SyntheticMesh()
+    from .detection import FaceDetector
+
+    return FaceDetector(), None
+
+
 def cmd_seed(args):
     from . import ingest, timestamps
     from .cache import Cache
-    from .detection import FaceDetector
 
     cfg = _cfg(args)
     cache = Cache(cfg.cache_db)
-    det = FaceDetector()
+    det, _ = _backend(args)
     for p in args.paths:
         path = Path(p)
         rgb = ingest.decode(path)
@@ -51,7 +61,8 @@ def cmd_seed(args):
 
 
 def cmd_analyze(args):
-    pipeline.analyze(args.folder, _cfg(args), force=args.force)
+    det, mesh = _backend(args)
+    pipeline.analyze(args.folder, _cfg(args), detector=det, mesh=mesh, force=args.force)
 
 
 def _au_scorer(args):
@@ -120,7 +131,8 @@ def _load_rejects(path: str | None) -> set[str]:
 
 def cmd_run(args):
     cfg = _cfg(args)
-    pipeline.analyze(args.folder, cfg, force=args.force)
+    det, mesh = _backend(args)
+    pipeline.analyze(args.folder, cfg, detector=det, mesh=mesh, force=args.force)
     pipeline.score(cfg, au_scorer=_au_scorer(args))
     pipeline.select(cfg, allow_mtime_dates=args.allow_mtime_dates)
     result = pipeline.render_final(cfg, rejects=_load_rejects(args.rejects))
@@ -181,12 +193,22 @@ def main(argv=None):
         s.set_defaults(func=func)
         return s
 
+    def backend_option(s):
+        s.add_argument(
+            "--backend",
+            choices=["insightface", "synthetic"],
+            default="insightface",
+            help="face detector; synthetic reads the drawn test faces",
+        )
+
     s = command("seed", cmd_seed)
     s.add_argument("action", choices=["add"])
     s.add_argument("paths", nargs="+")
+    backend_option(s)
     s = command("analyze", cmd_analyze)
     s.add_argument("folder")
     s.add_argument("--force", action="store_true")
+    backend_option(s)
     s = command("score", cmd_score)
     s.add_argument("--no-au", action="store_true")
     s.add_argument("--apply-review", help="review.json whose promotions to store before scoring")
@@ -201,6 +223,7 @@ def main(argv=None):
     s = command("run", cmd_run)
     s.add_argument("folder")
     s.add_argument("--force", action="store_true")
+    backend_option(s)
     s.add_argument("--no-au", action="store_true")
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
     s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")

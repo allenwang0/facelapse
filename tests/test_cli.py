@@ -50,5 +50,5 @@ def test_run_warns_when_au_scorer_is_missing(monkeypatch, capsys, tmp_path):
     for stage in ("analyze", "score", "select"):
         monkeypatch.setattr(pipeline, stage, lambda *a, **k: None)
     monkeypatch.setattr(pipeline, "render_final", lambda cfg, rejects=None: {"video": "v"})
-    cli.main(["run", str(tmp_path)])
+    cli.main(["run", str(tmp_path), "--backend", "synthetic"])
     assert "[warn] py-feat not installed" in capsys.readouterr().out
