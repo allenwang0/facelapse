@@ -148,7 +148,9 @@ def analyze(folder: str, cfg: Config, detector=None, mesh=None, force: bool = Fa
 
 
 # ---------------------------------------------------------------- score
-def score(cfg: Config, au_scorer=None) -> None:
+def score(cfg: Config, au_scorer=None, single_person: bool = False) -> None:
+    """single_person skips the identity gate and takes the largest face in
+    each image; it is the only mode for backends without embeddings."""
     cache = Cache(cfg.cache_db)
     seeds = cache.seeds()
     chain = ReferenceChain(seeds, k=cfg.id_reference_k)
@@ -160,13 +162,26 @@ def score(cfg: Config, au_scorer=None) -> None:
     by_img: dict[str, list] = {}
     for f in tqdm(all_faces, desc="Grouping faces", unit="face", disable=len(all_faces) < 100):
         by_img.setdefault(f.content_hash, []).append(f)
+    if not single_person and any(f.embedding.size == 0 for f in all_faces):
+        cache.close()
+        raise RuntimeError(
+            "these faces have no identity embedding (vision backend); "
+            "rerun score with --single-person"
+        )
 
     promoted = cache.promotions()
     counts = {o: 0 for o in IdOutcome}
     self_faces = []
     for ch, faces in by_img.items():
         when = cache.image_ts(ch).value
-        outcome, chosen = resolve_image(faces, when, chain, cfg.id_t_abs, cfg.id_margin)
+        if single_person:
+            chosen = max(
+                faces, key=lambda f: float((f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+            )
+            chosen.is_self = True
+            outcome = IdOutcome.CONFIDENT
+        else:
+            outcome, chosen = resolve_image(faces, when, chain, cfg.id_t_abs, cfg.id_margin)
         picked = [f for f in faces if (ch, f.face_id) in promoted]
         if picked:
             for f in faces:

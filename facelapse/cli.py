@@ -21,6 +21,8 @@ from pathlib import Path
 from . import pipeline
 from .config import Config
 
+SINGLE_HELP = "skip the identity gate and take the largest face (required by --backend vision)"
+
 
 def _cfg(args) -> Config:
     cfg = Config.load(getattr(args, "config", None))
@@ -35,6 +37,11 @@ def _backend(args):
         from .synthetic import SyntheticDetector, SyntheticMesh
 
         return SyntheticDetector(), SyntheticMesh()
+    if args.backend == "vision":
+        from .vision import VisionDetector
+
+        helper = Path(_cfg(args).cache_db).parent / "vision_detect"
+        return VisionDetector(helper), None
     from .detection import FaceDetector
 
     return FaceDetector(), None
@@ -83,7 +90,7 @@ def cmd_score(args):
     if args.apply_review:
         n = pipeline.apply_review(cfg, args.apply_review)
         print(f"[review] stored {n} promotions from {args.apply_review}")
-    pipeline.score(cfg, au_scorer=au)
+    pipeline.score(cfg, au_scorer=au, single_person=args.single_person)
 
 
 def cmd_select(args):
@@ -140,7 +147,7 @@ def cmd_run(args):
     cfg = _cfg(args)
     det, mesh = _backend(args)
     pipeline.analyze(args.folder, cfg, detector=det, mesh=mesh, force=args.force)
-    pipeline.score(cfg, au_scorer=_au_scorer(args))
+    pipeline.score(cfg, au_scorer=_au_scorer(args), single_person=args.single_person)
     pipeline.select(cfg, allow_mtime_dates=args.allow_mtime_dates)
     result = pipeline.render_final(cfg, rejects=_load_rejects(args.rejects))
     print(f"[done] {result['video']}")
@@ -243,9 +250,10 @@ def main(argv=None):
     def backend_option(s):
         s.add_argument(
             "--backend",
-            choices=["insightface", "synthetic"],
+            choices=["insightface", "vision", "synthetic"],
             default="insightface",
-            help="face detector; synthetic reads the drawn test faces",
+            help="face detector: vision is macOS-only and needs score --single-person; "
+            "synthetic reads the drawn test faces",
         )
 
     s = command("seed", cmd_seed)
@@ -259,6 +267,7 @@ def main(argv=None):
     s = command("score", cmd_score)
     s.add_argument("--no-au", action="store_true")
     s.add_argument("--apply-review", help="review.json whose promotions to store before scoring")
+    s.add_argument("--single-person", action="store_true", help=SINGLE_HELP)
     s = command("select", cmd_select)
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
     s.add_argument("--max-frames", type=int, help="cap winners, spread evenly across years")
@@ -285,6 +294,7 @@ def main(argv=None):
     s.add_argument("--no-au", action="store_true")
     s.add_argument("--allow-mtime-dates", action="store_true", help="admit photos dated by mtime")
     s.add_argument("--rejects", help="review.json, or a JSON list of content hashes to drop")
+    s.add_argument("--single-person", action="store_true", help=SINGLE_HELP)
 
     args = p.parse_args(argv)
     return args.func(args)
