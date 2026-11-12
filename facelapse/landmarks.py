@@ -2,9 +2,10 @@
 face crop (not the whole image, that's wasteful). Feeds the geometric
 neutral backstops (EAR/MAR) and the optional nasion alignment point.
 
-# VERIFY (open; `facelapse verify` plots them): MediaPipe landmark indices below are the widely-used canonical
-# ones, but confirm against your installed mediapipe version by plotting
-# them on one of your own faces before trusting EAR/MAR thresholds.
+# VERIFY (open; `facelapse verify` plots them): MediaPipe landmark indices
+# below are the widely-used canonical ones, but confirm against your
+# installed mediapipe version by plotting them on one of your own faces
+# before trusting EAR/MAR thresholds.
 """
 
 from __future__ import annotations

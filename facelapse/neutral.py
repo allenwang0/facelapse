@@ -35,7 +35,8 @@ class AUScorer:
 
     def au_activations(self, rgb_crop: np.ndarray) -> dict[str, float]:
         """Return {AU code: activation in [0,1]} for the crop. Wrapping only;
-        exact py-feat return schema is version-dependent -- VERIFY columns (open: no automated check yet)."""
+        exact py-feat return schema is version-dependent -- VERIFY columns
+        (open: no automated check yet)."""
         import tempfile
 
         import imageio.v2 as imageio
