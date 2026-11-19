@@ -35,6 +35,6 @@ facelapse report --synthetic   # writes out/timelapse.mp4 and out/report.html
 
 ## Limitations
 
-- Runs locally, nothing uploaded; the ML extras only download model weights on first use.
+- Runs locally, nothing uploaded; the ML extras only download model weights on first use. Those InsightFace `buffalo_l` weights are licensed for non-commercial research only.
 - Some smirks and blinks get through the expression filter, which is what the review page is for.
 - The synthetic demo shows each stage works; it says nothing about accuracy on real faces.
