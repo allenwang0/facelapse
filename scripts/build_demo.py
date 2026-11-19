@@ -27,7 +27,7 @@ def screenshot(page_path: Path, out: Path) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel=os.environ.get("PLAYWRIGHT_CHANNEL") or None)
         page = browser.new_page(viewport={"width": 1100, "height": 900}, color_scheme="light")
-        page.goto(page_path.as_uri())
+        page.goto(page_path.resolve().as_uri())
         page.screenshot(path=str(out), full_page=True)
         browser.close()
 
