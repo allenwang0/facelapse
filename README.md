@@ -10,7 +10,7 @@ The GIF and the [live report](https://allenwang0.github.io/facelapse/) come from
 
 - Works on a real archive, not a daily-selfie habit: reads folders and Google Takeout zips in place, including iPhone HEIC photos.
 - Tells you apart from a sibling: your face must beat the next-best face by a margin, and close calls go to a review page instead of being guessed.
-- Renders one frame at a time: at 1,000 frames, peak memory dropped from 4,466 MB to 382 MB.
+- Renders one frame at a time: on 1,000 synthetic 1600x1200 frames, peak memory dropped from 4,466 MB to 382 MB (`scripts/bench_render.py`).
 - Face detection runs once and is cached, so changing a threshold and rerunning takes seconds.
 
 ## Run it
@@ -21,8 +21,8 @@ Runs the full pipeline on a generated archive of 60 drawn faces.
 pip install -e ".[dev]"     # add ".[ml]" for face models on real photos
 python tests/fixtures/make_fixtures.py
 facelapse seed add tests/fixtures/seeds/*.jpg --backend synthetic
-facelapse run tests/fixtures/photos --backend synthetic
-facelapse report --synthetic   # writes out/timelapse.mp4 and out/report.html
+facelapse run tests/fixtures/photos --backend synthetic   # writes out/timelapse.mp4
+facelapse report --synthetic   # writes out/report.html
 ```
 
 ## How it works
