@@ -3,18 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>facelapse run report</title>
+<title>Facelapse run report · Allen Wang</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 <style>
-:root{--bg:#fbfbf9;--fg:#1d1d1b;--muted:#5f5f5a;--line:#d9d9d4;--panel:#ffffff;
+:root{--bg:#fbfbf9;--fg:#111111;--muted:#5f5f63;--line:#d9d9d4;--panel:#ffffff;color-scheme:light;
  --c1:#0072b2;--c2:#d55e00;--c3:#6b6b66;--bar:#0072b2;--bar2:#9cc6e4;--band:#f1efe8}
-@media (prefers-color-scheme: dark){:root{--bg:#141413;--fg:#ececea;--muted:#a3a39e;--line:#3a3a37;
- --panel:#1d1d1b;--c1:#56b4e9;--c2:#e69f00;--c3:#a3a39e;--bar:#56b4e9;--bar2:#2b5d7d;--band:#262624}}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0b0b0b;--fg:#f2f2ef;--muted:#a1a1a6;--line:#3a3a37;
+ --panel:#141414;--c1:#56b4e9;--c2:#e69f00;--c3:#a1a1a6;--bar:#56b4e9;--bar2:#2b5d7d;--band:#262624;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0b0b;--fg:#f2f2ef;--muted:#a1a1a6;--line:#3a3a37;
+ --panel:#141414;--c1:#56b4e9;--c2:#e69f00;--c3:#a1a1a6;--bar:#56b4e9;--bar2:#2b5d7d;--band:#262624;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif}
 main{max-width:960px;margin:0 auto;padding:16px}
 h1{font-size:22px;margin:8px 0 4px}
 h2{font-size:17px;margin:0}
-.banner{background:var(--band);border:1px solid var(--line);padding:8px 12px;border-radius:6px;margin:8px 0}
+.site-nav{display:flex;justify-content:space-between;gap:16px;padding:0 0 8px;font-size:14px}
+.site-nav a{color:var(--muted);text-decoration:none}.site-nav a:hover{color:var(--fg)}
+.synthetic{color:var(--muted);font-size:14px;margin:4px 0 0}
+#funnel rect:focus,#scatter g:focus{outline:2px solid var(--c1);outline-offset:2px}
 section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}
 .note{color:var(--muted);margin:2px 0 10px}
 .empty{color:var(--muted);font-style:italic}
@@ -36,11 +42,13 @@ code{font-size:12px;word-break:break-all}
 </head>
 <body>
 <main>
-<h1>facelapse run report</h1>
+<nav class="site-nav" aria-label="Site"><a href="https://allenwang0.github.io/">← Allen Wang</a><a href="https://github.com/allenwang0/facelapse">Source</a></nav>
+<h1>Facelapse run report</h1>
 <div id="banner"></div>
 <section id="v-funnel"><h2>Which stage removed my photos?</h2><p class="note" id="funnel-note"></p>
- <div id="funnel"></div><div id="funnel-detail">Hover or tap a bar for its top rejection reasons.</div></section>
-<section id="v-calib"><h2>Are id_t_abs and id_margin in the right place?</h2><p class="note" id="calib-note"></p>
+ <div id="funnel"></div><div id="funnel-detail" aria-live="polite">Hover, tap or focus a bar for its top rejection reasons.</div>
+ <p class="note" id="funnel-key"></p></section>
+<section id="v-calib"><h2>Are id_t_abs and id_margin in the right place?</h2><p class="note">id_t_abs is the minimum similarity to your seed photos for a face to count as you; id_margin is how far the best face must beat the runner-up in the same photo, or the photo goes to review.</p><p class="note" id="calib-note"></p>
  <div id="calib-body"></div></section>
 <section id="v-coverage"><h2>Where are the gaps in my timeline?</h2><p class="note" id="coverage-note"></p>
  <div id="coverage"></div><p class="note">Drag across the chart to zoom; double-click to reset.</p></section>
@@ -65,7 +73,7 @@ function note(id, text) { document.getElementById(id).textContent = text || ""; 
 const widthOf = id => Math.max(320, Math.min(900, document.getElementById(id).clientWidth || 640));
 const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
 
-if (D.banner) document.getElementById("banner").innerHTML = `<div class="banner">${D.banner}</div>`;
+if (D.banner) document.getElementById("banner").innerHTML = `<p class="synthetic">${D.banner}</p>`;
 
 /* 1. funnel */
 (function () {
@@ -85,8 +93,12 @@ if (D.banner) document.getElementById("banner").innerHTML = `<div class="banner"
       const why = r.reasons.length ? r.reasons.map(([k, n]) => `${k}: ${n}`).join("; ") : "nothing removed";
       document.getElementById("funnel-detail").textContent = `${r.stage}: ${why}`;
     };
-    bar.addEventListener("mouseenter", show); bar.addEventListener("click", show);
+    bar.setAttribute("tabindex", 0);
+    bar.setAttribute("aria-label", `${r.stage}: kept ${r.kept} of ${r.total}`);
+    bar.addEventListener("mouseenter", show); bar.addEventListener("click", show); bar.addEventListener("focus", show);
   });
+  note("funnel-key", `bucket winners: photos are grouped by ${D.grain} and only the highest-scoring one in each ` +
+       "group is kept (score blends frontality, neutral expression, sharpness, resolution, identity and open eyes).");
   el("line", {x1: left, x2: left, y1: 0, y2: H - 20, class: "axis"}, s);
   el("text", {x: left, y: H - 4, class: "muted"}, s, "kept (count, % of previous stage)");
 })();
@@ -107,7 +119,7 @@ function outcomeOf(top, gap, tAbs, margin) {
     <label>id_t_abs <span id="t-val"></span><input id="t" type="range" min="0" max="1" step="0.01"></label>
     <label>id_margin <span id="m-val"></span><input id="m" type="range" min="0" max="1" step="0.005"></label></div>
     <div class="legend"><span>&#9679; confident</span><span>&#9650; ambiguous</span><span>&#10005; none</span>
-    <span class="counts" id="calib-counts"></span></div><div id="scatter"></div><div id="detail"></div>
+    <span class="counts" id="calib-counts"></span></div><div id="scatter"></div><div id="detail" aria-live="polite"></div>
     <p><button id="copy">Copy config</button> <code id="snippet"></code></p>`;
   const t = document.getElementById("t"), m = document.getElementById("m");
   t.value = D.thresholds.t_abs; m.value = D.thresholds.margin;
@@ -129,11 +141,12 @@ function outcomeOf(top, gap, tAbs, margin) {
   const color = {confident: "var(--c1)", ambiguous: "var(--c2)", none: "var(--c3)"};
   const marks = D.points.map(p => {
     const g = el("g", {transform: `translate(${x(p.top)},${y(p.gap)})`, tabindex: 0}, s);
-    g.addEventListener("click", () => {
+    const show = () => {
       const img = p.thumb ? `<img src="${p.thumb}" alt="">` : "";
       document.getElementById("detail").innerHTML =
         `${img}${p.file}: similarity ${p.top.toFixed(3)}, margin ${p.faces > 1 ? p.gap.toFixed(3) : "single face"}`;
-    });
+    };
+    g.addEventListener("click", show); g.addEventListener("focus", show);
     return {p, g};
   });
   function draw() {
