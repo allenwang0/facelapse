@@ -160,7 +160,7 @@ def build_page(card, bench, shas):
         + rk.tag(
             "p",
             Raw(
-                f"The timelapse on the right is the pipeline's own output on {d['photos']} generated "
+                f"The timelapse shown here is the pipeline's own output on {d['photos']} generated "
                 f"photos of drawn faces ({d['years'][0]}–{d['years'][1]}), with face detection stubbed. "
                 f"It shows every stage running; it measures nothing about real photos.{R('E4')}"
             ),
