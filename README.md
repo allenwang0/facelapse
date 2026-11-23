@@ -13,8 +13,8 @@ GIF and [pipeline report](https://allenwang0.github.io/facelapse/report.html): s
 <!-- results:start -->
 - Works on a real archive, not a daily-selfie habit: reads folders and Google Takeout zips in place, including iPhone HEIC photos.
 - Tells you apart from a sibling: your face must beat the next-best face by a margin, and close calls go to a review page instead of being guessed.
-- Smooths the alignment sequence: on the synthetic demo, frame-to-frame eye jitter drops from 1.62 px to 0.36 px over 36 frames.
-- Renders one frame at a time: 143 MiB peak memory for 1,000 synthetic 1600×1200 frames (`scripts/bench_render.py`).
+- Smooths the alignment sequence: on the synthetic demo, frame-to-frame eye jitter drops from 1.62 px to 0.36 px over 36 frames.
+- Renders one frame at a time: 143 MiB peak memory for 1,000 synthetic 1600×1200 frames (`scripts/bench_render.py`).
 <!-- results:end -->
 
 ## Run it
