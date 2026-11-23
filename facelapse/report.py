@@ -609,7 +609,7 @@ def page_copy(d: dict[str, Any]) -> dict[str, str]:
                 "Eye jitter, raw \u2192 smoothed",
                 f"{j['raw']:.2f} \u2192 {j['smooth']:.2f} {_unit('px')}",
                 "mean change in eye position between consecutive frames.",
-                f"{j['window']}-frame smoothing window",
+                f"{j['window']}-frame smoothing window \u00b7 one run",
             )
         )
     if pts:
@@ -634,10 +634,10 @@ def page_copy(d: dict[str, Any]) -> dict[str, str]:
             _card(
                 6,
                 "method",
-                "Frames with a trusted date",
+                "Frames dated by EXIF or Takeout",
                 _pct(strong, total),
-                f"of {_n(total)} frames are dated by EXIF or Takeout ({parts}).",
-                "Filename and mtime dates are weaker",
+                f"of {_n(total)} frames ({parts}).",
+                "Filename dates are weaker; mtime-only photos are dropped",
             )
         )
     c["bento"] = "".join(cards)

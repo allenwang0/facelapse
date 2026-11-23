@@ -32,7 +32,7 @@
 .detail img{width:64px;height:auto;border-radius:8px;vertical-align:middle;margin-right:10px}
 .legend .mk{fill:none;stroke-width:2}
 .plot svg.fx{display:block;overflow:visible}
-.plot .hint{font-size:12px;fill:var(--ink-2);font-weight:500}
+.plot .hint{font-size:12px;fill:var(--ink-2);font-weight:500;paint-order:stroke;stroke:var(--surface-1);stroke-width:4px;stroke-linejoin:round}
 .plot .pt{cursor:pointer}
 .reasons{margin-top:24px}
 .reasons td.why{text-align:left;white-space:normal;min-width:240px;color:var(--ink-2)}
@@ -133,7 +133,7 @@ dl.kv{margin-top:16px;max-width:var(--measure)}
     </div>
     <dl class="kv">
       <dt>Eye offset</dt><dd>Distance in canvas pixels between where a frame's eye midpoint lands and the fixed target. A 2-point fit puts it exactly on target; it moves off only when the nose-bridge landmark pulls the fit.</dd>
-      <dt>Jitter</dt><dd>Mean absolute change in eye offset between consecutive frames.</dd>
+      <dt>Jitter</dt><dd>Mean absolute change in eye offset between consecutive frames. It uses the offset's size, not its direction.</dd>
       <dt>Similarity</dt><dd>Cosine similarity between a face's embedding and the seed photos.</dd>
     </dl>
     <div class="two">
@@ -308,6 +308,7 @@ function outcomeOf(top, gap, tAbs, margin) {
       mark(g, o);
       g.addEventListener("click", () => show(p));
     });
+    s.querySelectorAll(".hint").forEach(h => s.appendChild(h));
     document.getElementById("t-val").textContent = tv.toFixed(2);
     document.getElementById("m-val").textContent = mv.toFixed(3);
     const leg = document.getElementById("calib-counts"); leg.innerHTML = "";
