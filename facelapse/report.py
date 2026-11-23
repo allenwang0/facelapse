@@ -542,18 +542,23 @@ def page_copy(d: dict[str, Any]) -> dict[str, str]:
         )
         ex = j.get("example")
         if ex:
-            share = (
-                f" ({ex['neighbour_raw']:.2f} \u00f7 {j['window']} = {ex['smooth']:.2f})"
-                if ex["is_share"]
-                else ""
-            )
+            if ex["is_share"]:
+                why = (
+                    f", a 1/{j['window']} share of frame {ex['neighbour']}'s "
+                    f"{ex['neighbour_raw']:.2f}\u202fpx ({ex['neighbour_raw']:.2f} \u00f7 "
+                    f"{j['window']} = {ex['smooth']:.2f})"
+                )
+            else:
+                why = (
+                    f"; its window includes frame {ex['neighbour']}, whose raw fit is "
+                    f"{ex['neighbour_raw']:.2f}\u202fpx off"
+                )
             c["align_caveat"] = (
                 '<p class="caveat" role="note"><b>Steadier is not closer.</b> '
                 f"In {_n(ex['farther'])} of {_n(len(d['alignment']))} frames the smoothed eyes sit "
                 "farther from the target than the raw fit, because a frame inherits part of its "
                 f"neighbours' offsets. Frame {ex['frame']} moves from {ex['raw']:.2f} to "
-                f"{ex['smooth']:.2f}\u202fpx, a share of frame {ex['neighbour']}'s "
-                f"{ex['neighbour_raw']:.2f}\u202fpx{share}.</p>"
+                f"{ex['smooth']:.2f}\u202fpx{why}.</p>"
             )
         else:
             c["align_caveat"] = ""
