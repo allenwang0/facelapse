@@ -2,6 +2,10 @@
 
     python scripts/bench_render.py make DIR N   # write N 1600x1200 JPEGs + a cache
     /usr/bin/time -l python scripts/bench_render.py run DIR   # macOS; -v on Linux
+    python scripts/bench_render.py run DIR --json results/bench_render.json
+
+--json records frames, frame size, wall time, the process's peak resident memory
+(getrusage, the same figure /usr/bin/time reports), CPU and load average.
 
 `make` is separate so image generation does not count toward the render's
 peak memory. The cache marks every image as a selected winner with eyes at a
@@ -10,6 +14,11 @@ different position per frame, so render does a real warp each time.
 
 from __future__ import annotations
 
+import json
+import os
+import platform
+import resource
+import subprocess
 import sys
 import time
 from datetime import datetime, timedelta
@@ -75,14 +84,46 @@ def make(root: Path, n: int) -> None:
     cache.close()
 
 
-def run(root: Path) -> None:
+def _cpu() -> str:
+    out = subprocess.run(
+        ["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True
+    )
+    return out.stdout.strip() or platform.processor() or "not recorded"
+
+
+def run(root: Path, json_path: Path | None = None) -> None:
+    load_before = os.getloadavg()
     t0 = time.perf_counter()
     result = pipeline.render_final(_config(root))
-    print(f"[bench] wall {time.perf_counter() - t0:.1f} s -> {result['video']}")
+    wall = time.perf_counter() - t0
+    load_after = os.getloadavg()
+    # ru_maxrss is bytes on macOS and KiB on Linux
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    peak_bytes = peak if sys.platform == "darwin" else peak * 1024
+    print(f"[bench] wall {wall:.1f} s, peak RSS {peak_bytes / 2**20:.0f} MiB -> {result['video']}")
+    if json_path:
+        frames = len(list((root / "photos").glob("*.jpg")))
+        record = {
+            "frames": frames,
+            "width": W,
+            "height": H,
+            "wall_s": round(wall, 2),
+            "peak_rss_bytes": peak_bytes,
+            "cpu": _cpu(),
+            "machine": f"{platform.machine()} {platform.system()}",
+            "python": platform.python_version(),
+            "load_before": [round(x, 2) for x in load_before],
+            "load_after": [round(x, 2) for x in load_after],
+            "date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(record, indent=2) + "\n")
+        print(f"[bench] wrote {json_path}")
 
 
 if __name__ == "__main__":
     if sys.argv[1] == "make":
         make(Path(sys.argv[2]), int(sys.argv[3]))
     else:
-        run(Path(sys.argv[2]))
+        out = Path(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[3] == "--json" else None
+        run(Path(sys.argv[2]), out)
