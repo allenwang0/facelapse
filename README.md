@@ -2,20 +2,24 @@
 
 facelapse turns the messy photo archive you already have into a face-aging timelapse. It finds you among group shots, screenshots, duplicates and lookalike relatives, then picks one aligned, front-facing photo per week or month.
 
-![Timelapse rendered from the synthetic demo archive](https://allenwang0.github.io/facelapse/timelapse.gif)
+**[Read the project brief →](https://allenwang0.github.io/facelapse/)**
 
-The GIF and the [live report](https://allenwang0.github.io/facelapse/) come from a synthetic demo of drawn faces.
+![Timelapse rendered from the synthetic demo archive (drawn faces, synthetic)](https://allenwang0.github.io/facelapse/timelapse.gif)
+
+GIF and [pipeline report](https://allenwang0.github.io/facelapse/report.html): synthetic drawn faces, stubbed detection.
 
 ## Highlights
 
+<!-- results:start -->
 - Works on a real archive, not a daily-selfie habit: reads folders and Google Takeout zips in place, including iPhone HEIC photos.
 - Tells you apart from a sibling: your face must beat the next-best face by a margin, and close calls go to a review page instead of being guessed.
-- Renders one frame at a time: on 1,000 synthetic 1600x1200 frames, peak memory dropped from 4,466 MB to 382 MB (`scripts/bench_render.py`).
-- Face detection runs once and is cached, so changing a threshold and rerunning takes seconds.
+- Smooths the alignment sequence: on the synthetic demo, frame-to-frame eye jitter drops from 1.62 px to 0.36 px over 36 frames.
+- Renders one frame at a time: 143 MiB peak memory for 1,000 synthetic 1600×1200 frames (`scripts/bench_render.py`).
+<!-- results:end -->
 
 ## Run it
 
-Runs the full pipeline on a generated archive of 60 drawn faces.
+The full pipeline on 60 generated drawn faces:
 
 ```bash
 pip install -e ".[dev]"     # add ".[ml]" for face models on real photos
@@ -35,6 +39,6 @@ facelapse report --synthetic   # writes out/report.html
 
 ## Limitations
 
-- Runs locally, nothing uploaded; the ML extras only download model weights on first use. Those InsightFace `buffalo_l` weights are licensed for non-commercial research only.
-- Some smirks and blinks get through the expression filter, which is what the review page is for.
+- Runs locally; the ML extras download InsightFace `buffalo_l` weights, licensed for non-commercial research only.
+- Some smirks and blinks pass the expression filter; the review page catches them.
 - The synthetic demo shows each stage works; it says nothing about accuracy on real faces.
