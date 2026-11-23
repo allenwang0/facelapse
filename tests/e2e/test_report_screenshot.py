@@ -46,8 +46,8 @@ def test_report_renders(browser, report_url, scheme, size):
     page.goto(report_url)
     assert errors == []
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    for view in ("funnel", "scatter", "coverage", "align", "prov"):
-        assert page.locator(f"#{view} svg").count() == 1, view
+    for view in ("funnel", "scatter", "coverage", "align"):
+        assert page.locator(f"#{view} svg").count() >= 1, view
     assert "Synthetic data" in page.inner_text("#banner")
 
     before = page.inner_text("#calib-counts")

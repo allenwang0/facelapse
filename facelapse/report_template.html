@@ -2,63 +2,167 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Facelapse run report · Allen Wang</title>
-<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
+<meta name="description" content="{{description}}">
+<link rel="icon" href="data:,">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0b" media="(prefers-color-scheme: dark)">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<!-- report-kit v1.0.0, inlined by facelapse/report.py from facelapse/kit/ (vendored, never edited) -->
+<style>/*KIT_CSS*/</style>
 <style>
-:root{--bg:#fbfbf9;--fg:#111111;--muted:#5f5f63;--line:#d9d9d4;--panel:#ffffff;color-scheme:light;
- --c1:#0072b2;--c2:#d55e00;--c3:#6b6b66;--bar:#0072b2;--bar2:#9cc6e4;--band:#f1efe8}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0b0b0b;--fg:#f2f2ef;--muted:#a1a1a6;--line:#3a3a37;
- --panel:#141414;--c1:#56b4e9;--c2:#e69f00;--c3:#a1a1a6;--bar:#56b4e9;--bar2:#2b5d7d;--band:#262624;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0b0b0b;--fg:#f2f2ef;--muted:#a1a1a6;--line:#3a3a37;
- --panel:#141414;--c1:#56b4e9;--c2:#e69f00;--c3:#a1a1a6;--bar:#56b4e9;--bar2:#2b5d7d;--band:#262624;color-scheme:dark}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif}
-main{max-width:960px;margin:0 auto;padding:16px}
-h1{font-size:22px;margin:8px 0 4px}
-h2{font-size:17px;margin:0}
-.site-nav{display:flex;justify-content:space-between;gap:16px;padding:0 0 8px;font-size:14px}
-.site-nav a{color:var(--muted);text-decoration:none}.site-nav a:hover{color:var(--fg)}
-.synthetic{color:var(--muted);font-size:14px;margin:4px 0 0}
-#funnel rect:focus,#scatter g:focus{outline:2px solid var(--c1);outline-offset:2px}
-section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}
-.note{color:var(--muted);margin:2px 0 10px}
-.empty{color:var(--muted);font-style:italic}
-svg{width:100%;height:auto;display:block;overflow:visible}
-svg text{fill:var(--fg);font-size:12px}
-svg .muted{fill:var(--muted)}
-.axis{stroke:var(--line)}
-.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
-.controls label{display:block;font-size:13px}
-.controls input{width:100%}
-.counts{font-variant-numeric:tabular-nums}
-#detail,#align-detail,#funnel-detail{min-height:1.5em;color:var(--muted);font-size:13px}
-#detail img{width:96px;border-radius:4px;vertical-align:middle;margin-right:8px}
-button{font:inherit;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:var(--band);color:var(--fg);cursor:pointer}
-code{font-size:12px;word-break:break-all}
-.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted)}
-@media (max-width:600px){.controls{grid-template-columns:1fr}}
+/* report.local.css: facelapse-only layout and figures. Tokens come from the kit. */
+@media (min-width:1024px){.hero-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:48px;align-items:start}}
+.hero-grid .caveat{margin-top:20px}
+.hero-media{margin:32px 0 0;max-width:400px}
+@media (max-width:599px){.hero-media{max-width:280px}}
+@media (min-width:1024px){.hero-media{margin-top:0;justify-self:end;width:100%}}
+.hero-media img,.hero-media video{display:block;width:100%;height:auto;border-radius:var(--radius-card);border:1px solid var(--hairline);background:var(--surface-2)}
+.media-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:12px;font-size:var(--fs-small);color:var(--ink-2)}
+.btn{appearance:none;font:600 15px/1 var(--font-sans);min-height:var(--target-min);padding:0 18px;border-radius:var(--radius-control);border:1px solid var(--hairline);background:var(--surface-1);color:var(--accent);cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin-top:16px}
+.controls label{display:block;font-size:var(--fs-label);font-weight:600;color:var(--ink-2)}
+.controls output{font-variant-numeric:tabular-nums;color:var(--ink-1);margin-left:6px}
+.controls input[type=range]{display:block;width:100%;min-height:var(--target-min);accent-color:var(--accent);margin:0}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px}
+.actions code{font-size:13px;color:var(--ink-2);overflow-wrap:anywhere}
+.detail{min-height:1.45em;margin-top:8px;font-size:var(--fs-small);color:var(--ink-2)}
+.detail img{width:64px;height:auto;border-radius:8px;vertical-align:middle;margin-right:10px}
+.legend .mk{fill:none;stroke-width:2}
+.plot svg.fx{display:block;overflow:visible}
+.plot .hint{font-size:12px;fill:var(--ink-2);font-weight:500}
+.plot .pt{cursor:pointer}
+.reasons{margin-top:24px}
+.reasons td.why{text-align:left;white-space:normal;min-width:240px;color:var(--ink-2)}
+.prose{margin-top:24px}
+.prose p{color:var(--ink-1)}
+dl.kv{margin-top:16px;max-width:var(--measure)}
+#reproduce pre{margin-top:24px}
+@media (max-width:599px){.controls{grid-template-columns:1fr}}
+/* kit-bug override: charts.js width() floors plots at 260 px, so at a 320 px
+   viewport (246 px of plot room) the SVG scales down and its text drops below
+   11 px. Give the kit-drawn plots back 7 px of figure padding on each side. */
+@media (max-width:340px){#align,#align-offset{margin-inline:-7px;width:auto}}
 </style>
 </head>
 <body>
-<main>
-<nav class="site-nav" aria-label="Site"><a href="https://allenwang0.github.io/">← Allen Wang</a><a href="https://github.com/allenwang0/facelapse">Source</a></nav>
-<h1>Facelapse run report</h1>
-<div id="banner"></div>
-<section id="v-funnel"><h2>Which stage removed my photos?</h2><p class="note" id="funnel-note"></p>
- <div id="funnel"></div><div id="funnel-detail" aria-live="polite">Hover, tap or focus a bar for its top rejection reasons.</div>
- <p class="note" id="funnel-key"></p></section>
-<section id="v-calib"><h2>Are id_t_abs and id_margin in the right place?</h2><p class="note">id_t_abs is the minimum similarity to your seed photos for a face to count as you; id_margin is how far the best face must beat the runner-up in the same photo, or the photo goes to review.</p><p class="note" id="calib-note"></p>
- <div id="calib-body"></div></section>
-<section id="v-coverage"><h2>Where are the gaps in my timeline?</h2><p class="note" id="coverage-note"></p>
- <div id="coverage"></div><p class="note">Drag across the chart to zoom; double-click to reset.</p></section>
-<section id="v-align"><h2>Is the face steady?</h2><p class="note" id="align-note"></p>
- <div id="align"></div><div id="align-detail"></div></section>
-<section id="v-prov"><h2>How much of the timeline rests on weak dates?</h2><p class="note" id="prov-note"></p>
- <div id="prov"></div><p class="note">Hatched segments are dated by filename or file mtime.</p></section>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <div class="wrap">
+    <a class="back" href="https://allenwang0.github.io/">← Allen Wang</a>
+    <span class="title" aria-hidden="true">Facelapse run report</span>
+    <a class="pill" href="https://github.com/allenwang0/facelapse">Code ↗</a>
+  </div>
+</header>
+<main id="main">
+  <section class="hero wrap" aria-labelledby="h1">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">Pipeline run report · Python</p>
+        <h1 id="h1">{{h1}}</h1>
+        <p class="lede">{{lede}}</p>
+        <p class="conditions">{{conditions}}</p>
+        {{banner}}
+      </div>
+      {{media}}
+    </div>
+  </section>
+
+  <section class="wrap" aria-label="Key results">
+    <div class="bento">{{bento}}</div>
+  </section>
+
+  <section class="s wrap" id="funnel-s" aria-labelledby="h-funnel">
+    <p class="eyebrow">Where photos were dropped</p>
+    <h2 id="h-funnel">{{funnel_h2}}</h2>
+    <p class="lede">{{funnel_lede}}</p>
+    <figure class="figure" aria-labelledby="f-funnel">
+      <div class="fig-head"><div><h3 id="f-funnel">{{funnel_fig}}</h3><p class="sub">{{funnel_sub}}</p></div></div>
+      <div id="funnel"></div>
+      <div class="reasons" id="reasons"></div>
+    </figure>
+    <figcaption>Bars show how many photos are left after each stage, in pipeline order. Stages that removed nothing are left out. Blue stages are filters; the gray stage keeps the highest-scoring photo per period on purpose. The table lists each stage's most common reasons.</figcaption>
+  </section>
+
+  <section class="s wrap" id="calib-s" aria-labelledby="h-calib">
+    <p class="eyebrow">Identity thresholds</p>
+    <h2 id="h-calib">{{calib_h2}}</h2>
+    <p class="lede">{{calib_lede}}</p>
+    <figure class="figure" aria-labelledby="f-calib">
+      <div class="fig-head"><div><h3 id="f-calib">Move the thresholds to see which photos change outcome</h3><p class="sub">{{calib_sub}}</p></div>
+        <div class="seg" role="radiogroup" aria-label="View" data-view-toggle><button role="radio" aria-checked="true" data-value="chart">Chart</button><button role="radio" aria-checked="false" data-value="table">Table</button></div></div>
+      <div id="calib-body"></div>
+    </figure>
+    <figcaption>Each mark is one photo. Across: how similar its best face is to your seed photos. Up: how far that face beats the runner-up in the same photo. Photos with a single face have no runner-up and sit in the strip below the plot, spread vertically so overlapping marks stay visible.</figcaption>
+    {{calib_caveat}}
+  </section>
+
+  <section class="s wrap" id="coverage-s" aria-labelledby="h-cov">
+    <p class="eyebrow">Timeline coverage</p>
+    <h2 id="h-cov">{{coverage_h2}}</h2>
+    <p class="lede">{{coverage_lede}}</p>
+    <figure class="figure" aria-labelledby="f-cov">
+      <div class="fig-head"><div><h3 id="f-cov">{{coverage_fig}}</h3><p class="sub">{{coverage_sub}}</p></div>
+        <div class="seg" role="radiogroup" aria-label="View" data-view-toggle><button role="radio" aria-checked="true" data-value="chart">Chart</button><button role="radio" aria-checked="false" data-value="table">Table</button></div></div>
+      <div id="coverage"></div><div id="coverage-table" hidden></div>
+    </figure>
+    <figcaption>One bar per period that has at least one dated photo with a face. Blue periods produced a frame; gray periods had photos but lost all of them to the filters. The shaded band is the longest stretch with no usable photo.</figcaption>
+  </section>
+
+  <section class="s wrap" id="align-s" aria-labelledby="h-align">
+    <p class="eyebrow">Alignment stability</p>
+    <h2 id="h-align">{{align_h2}}</h2>
+    <p class="lede">{{align_lede}}</p>
+    <figure class="figure" aria-labelledby="f-align">
+      <div class="fig-head"><div><h3 id="f-align">{{align_fig}}</h3><p class="sub" id="align-sub">{{align_sub}}</p></div>
+        <div class="seg" role="radiogroup" aria-label="View" id="align-seg"><button role="radio" aria-checked="true" data-value="jitter">Jitter</button><button role="radio" aria-checked="false" data-value="offset">Offset</button><button role="radio" aria-checked="false" data-value="table">Table</button></div></div>
+      <div id="align"></div><div id="align-offset" hidden></div><div id="align-table" hidden></div>
+    </figure>
+    <figcaption id="align-cap">Jitter view: each point is the change in eye-midpoint offset between a frame and the one before it; the legend gives each line's mean, the numbers in the headline. Raw fit is dashed. Offset view: each frame's distance from the target eye position. Single run.</figcaption>
+    {{align_caveat}}
+  </section>
+
+  <section class="s wrap" id="method" aria-labelledby="h-method">
+    <p class="eyebrow">Methodology</p>
+    <h2 id="h-method">How this run was made</h2>
+    <div class="prose">
+      <p>facelapse finds every face in each photo and turns it into an ArcFace embedding. A face counts as you when it is similar enough to your seed photos from the same era and beats the next-best face in the photo by the margin. Turned heads, strong expressions, small faces, near-duplicates and photos dated only by file time are then dropped.</p>
+      <p>Each remaining photo gets a score that blends frontality, neutral expression, sharpness, resolution, identity and open eyes. The best photo per period becomes a frame. Frames are aligned on the eyes, the sequence of alignments is smoothed over a short window, and exposure is evened out before encoding.</p>
+    </div>
+    <dl class="kv">
+      <dt>Eye offset</dt><dd>Distance in canvas pixels between where a frame's eye midpoint lands and the fixed target. A 2-point fit puts it exactly on target; it moves off only when the nose-bridge landmark pulls the fit.</dd>
+      <dt>Jitter</dt><dd>Mean absolute change in eye offset between consecutive frames.</dd>
+      <dt>Similarity</dt><dd>Cosine similarity between a face's embedding and the seed photos.</dd>
+    </dl>
+    <div class="two">
+      <div><h3>What this shows</h3><ul>{{shows}}</ul></div>
+      <div><h3>What it doesn't show</h3><ul>{{not_shows}}</ul></div>
+    </div>
+  </section>
+
+  <section class="s wrap" id="reproduce" aria-labelledby="h-repro">
+    <p class="eyebrow">Reproduce</p>
+    <h2 id="h-repro">Run it yourself</h2>
+    <div class="codewrap"><pre><code>pip install -e ".[dev]"     # add ".[ml]" for face models on real photos
+python tests/fixtures/make_fixtures.py
+facelapse seed add tests/fixtures/seeds/*.jpg --backend synthetic
+facelapse run tests/fixtures/photos --backend synthetic   # writes out/timelapse.mp4
+facelapse report --synthetic   # writes out/report.html</code></pre></div>
+    <p class="caveat" role="note"><b>Pixel values vary by platform.</b> The same synthetic run gives slightly different jitter on macOS and Linux, so compare numbers produced on one machine. The environment below produced this page.</p>
+    <details>
+      <summary>Environment for this page · {{env_count}} rows</summary>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Environment table"><table><thead><tr><th scope="col">Field</th><th scope="col">Value</th></tr></thead><tbody>{{env_rows}}</tbody></table></div>
+    </details>
+  </section>
 </main>
+<footer><div class="wrap"><span><a href="https://allenwang0.github.io/">← Allen Wang</a><a href="https://github.com/allenwang0/facelapse">Code ↗</a></span><span>{{footer}}</span></div></footer>
+<script>/*KIT_JS*/</script>
 <script>
 const D = /*DATA*/null;
+/* report.local.js: facelapse figures. Charts draw at the container's real
+   pixel width (text never scales below 11 px) and redraw on resize. */
 const NS = "http://www.w3.org/2000/svg";
 function el(tag, attrs, parent, text) {
   const e = document.createElementNS(NS, tag);
@@ -67,43 +171,76 @@ function el(tag, attrs, parent, text) {
   if (parent) parent.appendChild(e);
   return e;
 }
-function svg(host, w, h) { host.innerHTML = ""; return el("svg", {viewBox: `0 0 ${w} ${h}`, role: "img"}, host); }
-function empty(id, msg) { document.getElementById(id).innerHTML = `<p class="empty">${msg}</p>`; }
-function note(id, text) { document.getElementById(id).textContent = text || ""; }
-const widthOf = id => Math.max(320, Math.min(900, document.getElementById(id).clientWidth || 640));
-const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+function empty(id, msg) { document.getElementById(id).innerHTML = `<p class="detail">${msg}</p>`; }
+function sized(id, draw) {
+  const host = document.getElementById(id);
+  host.classList.add("plot");
+  let last = 0, t;
+  const go = () => { const w = Math.max(260, host.clientWidth); if (w === last || !host.clientWidth) return; last = w; draw(host, w); };
+  go();
+  if ("ResizeObserver" in window) new ResizeObserver(() => { clearTimeout(t); t = setTimeout(go, 100); }).observe(host);
+}
+function canvas(host, W, H, label) {
+  const old = host.querySelector("svg.fx"); if (old) old.remove();
+  const s = el("svg", {class: "fx", width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": label});
+  host.appendChild(s);
+  return s;
+}
+const fmt2 = v => v.toFixed(2);
 
-if (D.banner) document.getElementById("banner").innerHTML = `<p class="synthetic">${D.banner}</p>`;
+/* hero timelapse: starts paused on its first frame */
+(function () {
+  const img = document.getElementById("tl"), btn = document.getElementById("tl-play");
+  if (!img || !btn) return;
+  const poster = img.src;
+  btn.addEventListener("click", () => {
+    const play = btn.getAttribute("aria-pressed") !== "true";
+    img.src = play ? img.dataset.gif : poster;
+    btn.setAttribute("aria-pressed", play);
+    btn.textContent = play ? "Stop" : "Play timelapse";
+  });
+})();
 
 /* 1. funnel */
 (function () {
-  note("funnel-note", D.funnel_note);
   if (!D.funnel.length) return empty("funnel", "Run facelapse analyze to fill the funnel.");
-  const W = widthOf("funnel"), row = 30, left = 112, H = D.funnel.length * row + 24;
-  const s = svg(document.getElementById("funnel"), W, H);
-  const max = Math.max(...D.funnel.map(r => r.total || r.kept), 1);
-  const scale = v => (W - left - 118) * v / max;
-  D.funnel.forEach((r, i) => {
-    const y = i * row + 4;
-    el("text", {x: left - 8, y: y + 17, "text-anchor": "end"}, s, r.stage);
-    const bar = el("rect", {x: left, y: y + 4, width: Math.max(1, scale(r.kept)), height: row - 10, fill: "var(--bar)", rx: 2}, s);
-    el("text", {x: left + scale(r.kept) + 6, y: y + 17, class: "muted"}, s,
-       `${r.kept.toLocaleString()} (${pct(r.kept, r.total)}%)`);
-    const show = () => {
-      const why = r.reasons.length ? r.reasons.map(([k, n]) => `${k}: ${n}`).join("; ") : "nothing removed";
-      document.getElementById("funnel-detail").textContent = `${r.stage}: ${why}`;
-    };
-    bar.setAttribute("tabindex", 0);
-    bar.setAttribute("aria-label", `${r.stage}: kept ${r.kept} of ${r.total}`);
-    bar.addEventListener("mouseenter", show); bar.addEventListener("click", show); bar.addEventListener("focus", show);
+  const rows = D.funnel.filter((r, i) => i === 0 || r.kept < r.total);
+  const PICK = "bucket winners";
+  const label = r => r.stage === PICK ? `best per ${D.grain}` : r.stage;
+  const max = Math.max(...rows.map(r => r.kept), 1);
+  sized("funnel", (host, W) => {
+    const narrow = W < 480, labelW = narrow ? 0 : Math.min(180, W * 0.26), barH = 20, lab = narrow ? 18 : 0;
+    const rowH = lab + barH + (narrow ? 14 : 12), T = 4, B = 36, H = T + rows.length * rowH + B, valW = 64;
+    const x0 = labelW, x1 = W - valW, x = v => x0 + (x1 - x0) * v / max;
+    const s = canvas(host, W, H, rows.map(r => `${label(r)}: ${r.kept} of ${r.total} left`).join("; "));
+    const step = max > 40 ? 20 : max > 20 ? 10 : 5;
+    for (let v = 0; v <= max; v += step) {
+      el("line", {x1: x(v), x2: x(v), y1: T, y2: H - B, stroke: "var(--grid)"}, s);
+      el("text", {x: x(v), y: H - B + 16, "text-anchor": "middle"}, s, v);
+    }
+    el("text", {x: (x0 + x1) / 2, y: H - 4, "text-anchor": "middle"}, s, "Photos left (count)");
+    rows.forEach((r, i) => {
+      const y = T + i * rowH, by = y + lab, w = Math.max(2, x(r.kept) - x0);
+      if (narrow) el("text", {class: "op", x: 0, y: y + 12}, s, label(r));
+      else el("text", {class: "op", x: x0 - 10, y: by + barH / 2 + 4, "text-anchor": "end"}, s, label(r));
+      const g = el("g", {}, s);
+      el("rect", {x: x0, y: by, width: w, height: barH, rx: 4, fill: r.stage === PICK ? "var(--series-neutral)" : "var(--series-1)"}, g);
+      el("text", {class: "val", x: x0 + w + 6, y: by + barH / 2 + 4}, g, i ? `${r.kept} of ${r.total}` : `${r.kept}`);
+    });
+    const leg = host.querySelector(".legend") || host.insertBefore(document.createElement("div"), s);
+    leg.className = "legend"; leg.setAttribute("aria-hidden", "true");
+    leg.innerHTML = `<span><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(--series-1)"/></svg>Filter</span><span><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(--series-neutral)"/></svg>Best photo per ${D.grain}, by design</span>`;
   });
-  note("funnel-key", `bucket winners: photos are grouped by ${D.grain} and only the highest-scoring one in each ` +
-       "group is kept (score blends frontality, neutral expression, sharpness, resolution, identity and open eyes).");
-  el("line", {x1: left, x2: left, y1: 0, y2: H - 20, class: "axis"}, s);
-  el("text", {x: left, y: H - 4, class: "muted"}, s, "kept (count, % of previous stage)");
+  RKCharts.table("#reasons", {
+    caption: "Photos removed at each stage, with the most common reasons",
+    columns: [{key: "stage", label: "Stage"}, {key: "kept", label: "Left"}, {key: "removed", label: "Removed"}, {key: "why", label: "Top reasons", align: "left"}],
+    rows: rows.map(r => ({stage: label(r), kept: r.kept, removed: r.total - r.kept,
+      why: r.reasons.length ? r.reasons.map(([k, n]) => `${k} (${n})`).join("; ") : "—"}))
+  });
+  document.querySelectorAll("#reasons td:last-child").forEach(td => td.classList.add("why"));
 })();
 
-/* 2. calibration explorer */
+/* 2. identity thresholds */
 /*RULE*/
 function outcomeOf(top, gap, tAbs, margin) {
   if (top < tAbs) return "none";
@@ -113,184 +250,184 @@ function outcomeOf(top, gap, tAbs, margin) {
 /*END RULE*/
 (function () {
   if (!D.has_seeds) return empty("calib-body", "Run facelapse seed add first.");
-  if (!D.points.length) return empty("calib-body", "Run facelapse score to place images on this chart.");
+  if (!D.points.length) return empty("calib-body", "Run facelapse score to place photos on this chart.");
   const host = document.getElementById("calib-body");
   host.innerHTML = `<div class="controls">
-    <label>id_t_abs <span id="t-val"></span><input id="t" type="range" min="0" max="1" step="0.01"></label>
-    <label>id_margin <span id="m-val"></span><input id="m" type="range" min="0" max="1" step="0.005"></label></div>
-    <div class="legend"><span>&#9679; confident</span><span>&#9650; ambiguous</span><span>&#10005; none</span>
-    <span class="counts" id="calib-counts"></span></div><div id="scatter"></div><div id="detail" aria-live="polite"></div>
-    <p><button id="copy">Copy config</button> <code id="snippet"></code></p>`;
+    <label for="t">Similarity threshold, id_t_abs<output id="t-val" for="t"></output><input id="t" type="range" min="0" max="1" step="0.01"></label>
+    <label for="m">Margin over runner-up, id_margin<output id="m-val" for="m"></output><input id="m" type="range" min="0" max="1" step="0.005"></label></div>
+    <div class="legend" id="calib-counts" aria-live="polite"></div>
+    <div id="scatter"></div><div class="rk-table" id="calib-table" hidden></div>
+    <div class="detail" id="detail" aria-live="polite">Tap or click a mark to see that photo.</div>
+    <div class="actions"><button class="btn" type="button" id="copy">Copy config</button><button class="btn" type="button" id="reset">Reset to run values</button><code id="snippet"></code></div>`;
   const t = document.getElementById("t"), m = document.getElementById("m");
-  t.value = D.thresholds.t_abs; m.value = D.thresholds.margin;
-  const W = widthOf("calib-body"), H = 380, L = 54, B = 44, T = 10, R = 10;
-  const x = v => L + (W - L - R) * Math.max(0, Math.min(1, v));
-  const y = v => H - B - (H - B - T) * Math.max(0, Math.min(1, v));
-  const s = svg(document.getElementById("scatter"), W, H);
-  for (const v of [0, 0.25, 0.5, 0.75, 1]) {
-    el("text", {x: x(v), y: H - B + 16, "text-anchor": "middle", class: "muted"}, s, v);
-    el("text", {x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "muted"}, s, v);
+  const reset = () => { t.value = D.thresholds.t_abs; m.value = D.thresholds.margin; };
+  reset();
+  const multi = D.points.filter(p => p.faces > 1), single = D.points.filter(p => p.faces <= 1);
+  const gmax = Math.max(1, ...multi.map(p => p.gap));
+  const color = {confident: "var(--series-1)", ambiguous: "var(--series-2)", none: "var(--series-neutral)"};
+  const name = {confident: "confident", ambiguous: "review", none: "no match"};
+  function mark(g, o) {
+    const c = color[o];
+    if (o === "confident") el("circle", {r: 4.5, fill: c, stroke: "var(--surface-1)", "stroke-width": 1}, g);
+    else if (o === "ambiguous") el("path", {d: "M0,-6 L5.5,4 L-5.5,4 Z", fill: c, stroke: "var(--surface-1)", "stroke-width": 1}, g);
+    else el("path", {d: "M-4,-4 L4,4 M4,-4 L-4,4", stroke: c, "stroke-width": 2}, g);
   }
-  el("text", {x: (L + W) / 2, y: H - 6, "text-anchor": "middle"}, s, "top face similarity to seeds (cosine)");
-  el("text", {x: 12, y: (H - B) / 2, transform: `rotate(-90 12 ${(H - B) / 2})`, "text-anchor": "middle"}, s,
-     "margin over runner-up (cosine)");
-  el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis"}, s);
-  el("line", {x1: L, x2: L, y1: T, y2: H - B, class: "axis"}, s);
-  const vline = el("line", {stroke: "var(--fg)", "stroke-dasharray": "5 4", y1: T, y2: H - B}, s);
-  const hline = el("line", {stroke: "var(--fg)", "stroke-dasharray": "5 4", x2: W - R}, s);
-  const color = {confident: "var(--c1)", ambiguous: "var(--c2)", none: "var(--c3)"};
-  const marks = D.points.map(p => {
-    const g = el("g", {transform: `translate(${x(p.top)},${y(p.gap)})`, tabindex: 0}, s);
-    const show = () => {
-      const img = p.thumb ? `<img src="${p.thumb}" alt="">` : "";
-      document.getElementById("detail").innerHTML =
-        `${img}${p.file}: similarity ${p.top.toFixed(3)}, margin ${p.faces > 1 ? p.gap.toFixed(3) : "single face"}`;
-    };
-    g.addEventListener("click", show); g.addEventListener("focus", show);
-    return {p, g};
-  });
+  function show(p) {
+    const img = p.thumb ? `<img src="${p.thumb}" alt="">` : "";
+    document.getElementById("detail").innerHTML =
+      `${img}${p.file}: similarity ${p.top.toFixed(3)}, ${p.faces > 1 ? "margin " + p.gap.toFixed(3) : "single face"}`;
+  }
+  let W = 0;
   function draw() {
+    const host = document.getElementById("scatter");
+    W = Math.max(260, host.clientWidth || 600);
+    const narrow = W < 480, L = 48, R = 12, T = 10, PH = narrow ? 140 : 160, SH = 64, H = T + PH + 22 + SH + 44;
     const tv = +t.value, mv = +m.value, n = {confident: 0, ambiguous: 0, none: 0};
+    const x = v => L + (W - L - R) * Math.max(0, Math.min(1, v));
+    const y = v => T + PH - PH * Math.max(0, Math.min(gmax, v)) / gmax;
+    const s = canvas(host, W, H, `Identity scatter: at id_t_abs ${tv.toFixed(2)} and id_margin ${mv.toFixed(3)}, outcomes per photo.`);
+    const ticks = narrow ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1];
+    const yt = gmax > 1 ? [0, 0.5, 1, gmax].map(v => +v.toFixed(2)) : [0, 0.5, 1];
+    for (const v of yt) {
+      el("line", {x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: "var(--grid)"}, s);
+      el("text", {x: L - 8, y: y(v) + 4, "text-anchor": "end"}, s, v);
+    }
+    const sy = T + PH + 22;
+    el("rect", {x: L, y: sy, width: W - L - R, height: SH, fill: "var(--surface-2)", rx: 8}, s);
+    el("text", {x: L + 8, y: sy - 6, class: "hint"}, s, `Single face, no runner-up (${single.length})`);
+    for (const v of ticks) el("text", {x: x(v), y: sy + SH + 18, "text-anchor": "middle"}, s, v);
+    el("text", {x: (L + W - R) / 2, y: H - 4, "text-anchor": "middle"}, s, "Similarity to seed photos (cosine)");
+    el("text", {x: 12, y: T + PH / 2, transform: `rotate(-90 12 ${T + PH / 2})`, "text-anchor": "middle"}, s, "Margin (cosine)");
+    el("text", {x: L + 8, y: T + 14, class: "hint"}, s, `More than one face (${multi.length})`);
+    el("line", {x1: x(tv), x2: x(tv), y1: T, y2: sy + SH, stroke: "var(--ink-1)", "stroke-dasharray": "5 4"}, s);
+    el("line", {x1: x(tv), x2: W - R, y1: y(mv), y2: y(mv), stroke: "var(--ink-1)", "stroke-dasharray": "5 4"}, s);
+    D.points.forEach((p, i) => {
+      const o = outcomeOf(p.top, p.gap, tv, mv); n[o]++;
+      const py = p.faces > 1 ? y(p.gap) : sy + 10 + ((i * 7919) % 45);
+      const g = el("g", {class: "pt", transform: `translate(${x(p.top)},${py})`}, s);
+      mark(g, o);
+      g.addEventListener("click", () => show(p));
+    });
     document.getElementById("t-val").textContent = tv.toFixed(2);
     document.getElementById("m-val").textContent = mv.toFixed(3);
-    vline.setAttribute("x1", x(tv)); vline.setAttribute("x2", x(tv));
-    hline.setAttribute("x1", x(tv)); hline.setAttribute("y1", y(mv)); hline.setAttribute("y2", y(mv));
-    for (const {p, g} of marks) {
-      const o = outcomeOf(p.top, p.gap, tv, mv); n[o]++;
-      g.innerHTML = "";
-      const c = color[o];
-      if (o === "confident") el("circle", {r: 4.5, fill: c}, g);
-      else if (o === "ambiguous") el("path", {d: "M0,-6 L5.5,4 L-5.5,4 Z", fill: c}, g);
-      else el("path", {d: "M-4,-4 L4,4 M4,-4 L-4,4", stroke: c, "stroke-width": 2}, g);
+    const leg = document.getElementById("calib-counts"); leg.innerHTML = "";
+    for (const o of ["confident", "ambiguous", "none"]) {
+      const span = document.createElement("span");
+      const sv = el("svg", {width: 14, height: 14, viewBox: "-7 -7 14 14", "aria-hidden": "true"}, span);
+      mark(sv, o);
+      span.appendChild(document.createTextNode(`${name[o]} ${n[o]}`));
+      leg.appendChild(span);
     }
-    document.getElementById("calib-counts").textContent =
-      `confident ${n.confident}, ambiguous ${n.ambiguous}, none ${n.none}`;
-    note("calib-note", `At these thresholds ${n.confident} of ${D.points.length} images are confident ` +
-      `and ${n.ambiguous} go to review. Single-face images sit on the top edge.`);
-    document.getElementById("snippet").textContent =
-      JSON.stringify({id_t_abs: +tv.toFixed(3), id_margin: +mv.toFixed(3)});
+    document.getElementById("snippet").textContent = JSON.stringify({id_t_abs: +tv.toFixed(3), id_margin: +mv.toFixed(3)});
+    RKCharts.table("#calib-table", {
+      caption: `Outcome per photo at id_t_abs ${tv.toFixed(2)}, id_margin ${mv.toFixed(3)}`,
+      columns: [{key: "file", label: "Photo"}, {key: "top", label: "Similarity"}, {key: "gap", label: "Margin"}, {key: "o", label: "Outcome"}],
+      rows: D.points.map(p => ({file: p.file, top: p.top.toFixed(3), gap: p.faces > 1 ? p.gap.toFixed(3) : "single face", o: name[outcomeOf(p.top, p.gap, tv, mv)]}))
+    });
   }
   t.addEventListener("input", draw); m.addEventListener("input", draw);
-  document.getElementById("copy").addEventListener("click", () =>
-    navigator.clipboard && navigator.clipboard.writeText(document.getElementById("snippet").textContent));
+  document.getElementById("reset").addEventListener("click", () => { reset(); draw(); });
+  document.getElementById("copy").addEventListener("click", ev => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(document.getElementById("snippet").textContent).then(() => {
+      ev.target.textContent = "Copied"; setTimeout(() => { ev.target.textContent = "Copy config"; }, 1500);
+    });
+  });
+  const sc = document.getElementById("scatter"); sc.classList.add("plot");
   draw();
+  let rt;
+  if ("ResizeObserver" in window) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { if (sc.clientWidth && sc.clientWidth !== W) draw(); }, 100); }).observe(sc);
 })();
 
 /* 3. coverage */
 (function () {
-  if (!D.has_selected) return empty("coverage", "Run facelapse select to see coverage.");
-  note("coverage-note", D.coverage_note);
+  if (!D.has_selected || !D.coverage.length) return empty("coverage", "Run facelapse select to see coverage.");
   const rows = D.coverage.map(r => ({...r, t: Date.parse(r.start)}));
   const day = 864e5, span = {day: 1, week: 7, month: 30}[D.grain] * day;
-  const full = [Math.min(...rows.map(r => r.t)), Math.max(...rows.map(r => r.t)) + span];
-  let dom = full.slice();
-  const W = widthOf("coverage"), H = 220, L = 40, B = 40, T = 14, R = 10;
-  const host = document.getElementById("coverage");
-  function draw() {
-    const s = svg(host, W, H);
-    const maxN = Math.max(...rows.map(r => r.n), 1);
-    const x = v => L + (W - L - R) * (v - dom[0]) / (dom[1] - dom[0]);
+  const t0 = Math.min(...rows.map(r => r.t)), t1 = Math.max(...rows.map(r => r.t)) + span;
+  let gap = null;
+  for (let i = 1; i < rows.length; i++) { const g = rows[i].t - rows[i - 1].t; if (!gap || g > gap.g) gap = {g, a: rows[i - 1], b: rows[i]}; }
+  if (gap && gap.g <= span * 1.5) gap = null;
+  const maxN = Math.max(...rows.map(r => r.n), 1);
+  sized("coverage", (host, W) => {
+    const narrow = W < 480, H = narrow ? 220 : 260, L = 36, R = 12, T = 28, B = 40;
+    const x = v => L + (W - L - R) * (v - t0) / (t1 - t0);
     const y = v => H - B - (H - B - T) * v / maxN;
+    const s = canvas(host, W, H, document.getElementById("h-cov").textContent);
+    const step = Math.max(1, Math.ceil(maxN / 4));
+    for (let v = 0; v <= maxN; v += step) {
+      el("line", {x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: "var(--grid)"}, s);
+      el("text", {x: L - 8, y: y(v) + 4, "text-anchor": "end"}, s, v);
+    }
+    if (gap) {
+      const a = x(gap.a.t + span), b = x(gap.b.t);
+      el("rect", {x: a, y: T, width: Math.max(0, b - a), height: H - B - T, fill: "var(--ink-3)", opacity: 0.12}, s);
+      const days = Math.round((gap.b.t - gap.a.t) / day);
+      el("text", {x: (a + b) / 2, y: T - 8, "text-anchor": "middle", class: "hint"}, s, `${days}-day gap`);
+    }
     for (const r of rows) {
-      if (r.t + span < dom[0] || r.t > dom[1]) continue;
-      const w = Math.max(1.5, x(r.t + span) - x(r.t) - 1);
-      el("rect", {x: x(r.t), y: y(r.n), width: w, height: H - B - y(r.n), fill: "var(--bar2)"}, s);
-      if (r.winner) el("circle", {cx: x(r.t) + w / 2, cy: y(r.n) - 6, r: 3, fill: "var(--c1)"}, s);
+      const w = Math.max(2, x(r.t + span) - x(r.t) - 1);
+      const g = el("g", {}, s);
+      el("rect", {x: x(r.t), y: y(r.n), width: w, height: H - B - y(r.n), rx: Math.min(2, w / 2), fill: r.winner ? "var(--series-1)" : "var(--series-neutral)"}, g);
     }
-    const y0 = new Date(dom[0]).getUTCFullYear(), y1 = new Date(dom[1]).getUTCFullYear();
-    const every = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
-    for (let yr = y0; yr <= y1 + 1; yr += every) {
+    const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear();
+    const every = Math.max(1, Math.ceil((y1 - y0 + 1) / (narrow ? 4 : 9)));
+    for (let yr = y0; yr <= y1; yr += every) {
       const tx = Date.UTC(yr, 0, 1);
-      if (tx < dom[0] || tx > dom[1]) continue;
-      el("line", {x1: x(tx), x2: x(tx), y1: H - B, y2: H - B + 5, class: "axis"}, s);
-      el("text", {x: x(tx), y: H - B + 18, "text-anchor": "middle", class: "muted"}, s, yr);
+      if (tx < t0 || tx > t1) continue;
+      el("line", {x1: x(tx), x2: x(tx), y1: H - B, y2: H - B + 5, stroke: "var(--axis)"}, s);
+      el("text", {x: x(tx), y: H - B + 18, "text-anchor": "middle"}, s, yr);
     }
-    el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis"}, s);
-    el("text", {x: L - 6, y: y(maxN) + 4, "text-anchor": "end", class: "muted"}, s, maxN);
-    el("text", {x: L - 6, y: H - B + 4, "text-anchor": "end", class: "muted"}, s, 0);
-    el("text", {x: L, y: H - 4, class: "muted"}, s, `photos per ${D.grain}; dot = has a winner`);
-    let start = null;
-    const brush = el("rect", {y: T, height: H - B - T, fill: "var(--c1)", opacity: 0.15, width: 0}, s);
-    const toData = ev => {
-      const pt = s.getBoundingClientRect();
-      const px = (ev.clientX - pt.left) * W / pt.width;
-      return dom[0] + (px - L) / (W - L - R) * (dom[1] - dom[0]);
-    };
-    s.addEventListener("pointerdown", ev => { start = toData(ev); });
-    s.addEventListener("pointermove", ev => {
-      if (start === null) return;
-      const a = x(Math.min(start, toData(ev))), b = x(Math.max(start, toData(ev)));
-      brush.setAttribute("x", a); brush.setAttribute("width", b - a);
-    });
-    s.addEventListener("pointerup", ev => {
-      const end = toData(ev);
-      if (start !== null && Math.abs(end - start) > span) dom = [Math.min(start, end), Math.max(start, end)];
-      start = null; draw();
-    });
-    s.addEventListener("dblclick", () => { dom = full.slice(); draw(); });
-  }
-  draw();
+    el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, stroke: "var(--axis)"}, s);
+    el("text", {x: L, y: H - 4}, s, `Photos per ${D.grain} (count)`);
+    const leg = host.querySelector(".legend") || host.insertBefore(document.createElement("div"), s);
+    leg.className = "legend"; leg.setAttribute("aria-hidden", "true");
+    leg.innerHTML = `<span><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(--series-1)"/></svg>Produced a frame</span><span><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(--series-neutral)"/></svg>Photos, none kept</span>`;
+  });
+  RKCharts.table("#coverage-table", {
+    caption: `Photos with a dated face per ${D.grain}`,
+    columns: [{key: "key", label: D.grain[0].toUpperCase() + D.grain.slice(1)}, {key: "n", label: "Photos"}, {key: "w", label: "Frame"}],
+    rows: rows.map(r => ({key: r.key, n: r.n, w: r.winner ? "yes" : "no"}))
+  });
 })();
 
 /* 4. alignment stability */
 (function () {
   if (!D.has_selected) return empty("align", "Run facelapse select, then facelapse render.");
-  if (!D.alignment) return empty("align", "Run facelapse render to measure alignment.");
-  note("align-note", D.alignment_note);
-  const rows = D.alignment;
-  if (!rows.length) return;
-  const W = widthOf("align"), H = 240, L = 44, B = 40, T = 12, R = 70;
-  const s = svg(document.getElementById("align"), W, H);
-  const maxV = Math.max(0.5, ...rows.map(r => Math.max(r.raw, r.smooth)));
-  const n = Math.max(rows.length - 1, 1);
-  const x = i => L + (W - L - R) * i / n, y = v => H - B - (H - B - T) * v / maxV;
-  for (const [key, dash, label] of [["raw", "6 4", "raw"], ["smooth", "", "smoothed"]]) {
-    const d = rows.map((r, i) => `${i ? "L" : "M"}${x(i)},${y(r[key])}`).join("");
-    el("path", {d, fill: "none", stroke: "var(--fg)", "stroke-width": 1.6, "stroke-dasharray": dash}, s);
-    el("text", {x: x(rows.length - 1) + 6, y: y(rows[rows.length - 1][key]) + 4}, s, label);
-  }
-  el("line", {x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis"}, s);
-  el("text", {x: L - 6, y: y(maxV) + 4, "text-anchor": "end", class: "muted"}, s, maxV.toFixed(1));
-  el("text", {x: L - 6, y: H - B + 4, "text-anchor": "end", class: "muted"}, s, "0");
-  el("text", {x: L, y: H - B + 18, class: "muted"}, s, "1");
-  el("text", {x: W - R, y: H - B + 18, "text-anchor": "end", class: "muted"}, s, rows.length);
-  el("text", {x: (L + W - R) / 2, y: H - 4, "text-anchor": "middle"}, s, "frame index");
-  el("text", {x: 10, y: (H - B) / 2, transform: `rotate(-90 10 ${(H - B) / 2})`, "text-anchor": "middle"}, s,
-     "eye-midpoint offset (px)");
-  const hit = el("rect", {x: L, y: T, width: W - L - R, height: H - B - T, fill: "transparent"}, s);
-  hit.addEventListener("pointermove", ev => {
-    const b = s.getBoundingClientRect();
-    const i = Math.round(((ev.clientX - b.left) * W / b.width - L) / (W - L - R) * n);
-    const r = rows[Math.max(0, Math.min(rows.length - 1, i))];
-    document.getElementById("align-detail").textContent =
-      `frame ${r.i + 1}, ${r.date}, ${r.file}: raw ${r.raw} px, smoothed ${r.smooth} px`;
+  if (!D.alignment || !D.alignment.length) return empty("align", "Run facelapse render to measure alignment.");
+  const rows = D.alignment, J = D.jitter;
+  const S = [{key: "smooth", name: "Smoothed", color: "var(--series-1)"}, {key: "raw", name: "Raw fit", color: "var(--series-2)", dash: true}];
+  const mean = {smooth: J.smooth, raw: J.raw};
+  const dx = k => rows.slice(1).map((r, i) => +Math.abs(r[k] - rows[i][k]).toFixed(3));
+  RKCharts.line("#align", {
+    x: rows.slice(1).map((r, i) => i + 2),
+    series: S.map(s => ({...s, name: `${s.name}, mean ${fmt2(mean[s.key])} px`, y: dx(s.key)})),
+    endLabels: false,
+    xTicks: [10, 20, 30].filter(v => v <= rows.length), xLabel: "Frame (change from the previous frame)", yLabel: "Jitter (px)", yUnit: "px",
+    format: v => +v.toFixed(2) + "", xFormat: v => Math.round(v) + "",
+    title: `Frame-to-frame jitter: raw mean ${fmt2(J.raw)} px, smoothed mean ${fmt2(J.smooth)} px`
   });
-})();
-
-/* 5. date provenance */
-(function () {
-  if (!D.has_selected) return empty("prov", "Run facelapse select to see date sources.");
-  note("prov-note", D.provenance_note);
-  const order = [["TAKEOUT_JSON", "Takeout", 0], ["EXIF_ORIGINAL", "EXIF original", 0],
-                 ["EXIF_DIGITIZED", "EXIF digitized", 0], ["FILENAME", "filename", 1], ["MTIME", "mtime", 1]];
-  const total = Object.values(D.provenance).reduce((a, b) => a + b, 0);
-  const W = widthOf("prov"), H = 92, L = 0;
-  const s = svg(document.getElementById("prov"), W, H);
-  const defs = el("defs", {}, s);
-  const pat = el("pattern", {id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)"}, defs);
-  el("rect", {width: 6, height: 6, fill: "var(--bar2)"}, pat);
-  el("line", {x1: 0, y1: 0, x2: 0, y2: 6, stroke: "var(--fg)", "stroke-width": 2}, pat);
-  let x0 = L;
-  order.forEach(([key, label, weak], i) => {
-    const n = D.provenance[key] || 0;
-    if (!n) return;
-    const w = (W - L) * n / total;
-    el("rect", {x: x0, y: 4, width: w, height: 34, fill: weak ? "url(#hatch)" : "var(--bar)",
-                stroke: "var(--panel)", "stroke-width": 1}, s);
-    el("text", {x: Math.min(x0 + 2, W - 120), y: 56 + (i % 2) * 16, class: "muted"}, s, `${label} ${n}`);
-    x0 += w;
+  RKCharts.line("#align-offset", {
+    x: rows.map(r => r.i + 1), series: S.map(s => ({...s, y: rows.map(r => r[s.key])})),
+    xTicks: [1, 10, 20, 30].filter(v => v <= rows.length), xLabel: "Frame", yLabel: "Eye-midpoint offset from target (px)", yUnit: "px",
+    format: v => +v.toFixed(2) + "", xFormat: v => Math.round(v) + "",
+    title: "Distance of each frame's eye midpoint from the target, raw fit and smoothed"
   });
-  el("text", {x: 0, y: H - 2, class: "muted"}, s, "winners by date source; hatched = weaker");
+  RKCharts.table("#align-table", {
+    caption: "Eye-midpoint offset and jitter per frame (px)",
+    columns: [{key: "f", label: "Frame"}, {key: "date", label: "Date"}, {key: "raw", label: "Offset, raw"}, {key: "smooth", label: "Offset, smoothed"}, {key: "jr", label: "Jitter, raw"}, {key: "js", label: "Jitter, smoothed"}],
+    rows: rows.map((r, i) => ({f: i + 1, date: r.date, raw: r.raw.toFixed(2), smooth: r.smooth.toFixed(2),
+      jr: i ? Math.abs(r.raw - rows[i - 1].raw).toFixed(2) : "—", js: i ? Math.abs(r.smooth - rows[i - 1].smooth).toFixed(2) : "—"}))
+  });
+  const subs = {jitter: document.getElementById("align-sub").textContent,
+    offset: `Distance of the eye midpoint from its target · px · ${rows.length} frames`,
+    table: `Offset and jitter per frame · px · ${rows.length} frames`};
+  RK.segmented("#align-seg", v => {
+    document.getElementById("align").hidden = v !== "jitter";
+    document.getElementById("align-offset").hidden = v !== "offset";
+    document.getElementById("align-table").hidden = v !== "table";
+    document.getElementById("align-sub").textContent = subs[v];
+  });
 })();
 </script>
 </body>

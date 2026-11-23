@@ -55,6 +55,57 @@ def test_every_view_has_data_and_a_takeaway(demo):
     assert data["banner"].startswith("Synthetic data")
 
 
+def test_page_text_is_filled_in_without_javascript(demo):
+    """Headline numbers render in the HTML itself (first paint, no JS) and no
+    template slot is left behind."""
+    page = (demo[0] / "out" / "report.html").read_text()
+    data = _embedded(demo[0])
+    assert "{{" not in page and "/*KIT_" not in page
+    frames = len(data["alignment"])
+    h1 = re.search(r'<h1 id="h1">(.*?)</h1>', page).group(1)
+    assert h1.startswith(f"{frames} frames from {data['funnel'][0]['total']} photos")
+    j = data["jitter"]
+    assert f"from {j['raw']:.2f}\u202fpx to {j['smooth']:.2f}\u202fpx" in page
+
+
+def test_inlined_kit_cannot_close_its_own_script_tag(demo):
+    """The kit's comments quote <script> tags; inlined verbatim they would end
+    the page's script early and every chart would fail to draw."""
+    page = (demo[0] / "out" / "report.html").read_text()
+    bodies = re.findall(r"<script>(.*?)</script>", page, re.S)
+    # one element holds all of report.js and charts.js, start to end
+    assert any("RK.initBar" in b and "C.table = function" in b for b in bodies)
+    assert any(b.lstrip().startswith("const D = ") for b in bodies)
+
+
+def test_page_and_card_quote_the_same_jitter(demo):
+    """site/card.json (the portfolio card) and the page must not disagree:
+    both come from the same manifest and the same jitter formula."""
+    from scripts.make_card import build_card
+
+    manifest = json.loads((demo[0] / "out" / "manifest.json").read_text())
+    card = build_card(manifest, "a" * 40, 60)
+    j = _embedded(demo[0])["jitter"]
+    assert card["metric"]["value"] == pytest.approx(j["smooth"], abs=1e-3)
+    assert f"from {j['raw']:.2f} px to {j['smooth']:.2f} px" in card["takeaway"]
+
+
+def test_drift_example_names_the_neighbour_the_smoother_borrowed_from():
+    """A frame a 2-point fit puts on target (raw 0) ends up off target after
+    smoothing because it takes a 1/window share of a neighbour's offset. The
+    page explains the smoothed line with exactly that arithmetic, so it must
+    only claim it when the numbers match."""
+    from facelapse.report import _drift_example
+
+    rows = [{"raw": r, "smooth": s} for r, s in [(0, 0), (0, 2.55), (7.65, 2.55), (0, 0)]]
+    ex = _drift_example(rows, 3)
+    assert ex["frame"] == 2 and ex["neighbour"] == 3 and ex["is_share"]
+    rows[1]["smooth"] = 1.0
+    assert _drift_example(rows, 3)["is_share"] is False
+    steady = [{"raw": 1.0, "smooth": 0.5}, {"raw": 1.0, "smooth": 0.5}]
+    assert _drift_example(steady, 3) is None
+
+
 def test_no_cache_is_an_error_and_writes_nothing(tmp_path, capsys):
     cfg = tmp_path / "cfg.json"
     cfg.write_text(
