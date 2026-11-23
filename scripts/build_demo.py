@@ -1,6 +1,7 @@
 """Build the synthetic demo site: run the pipeline on the generated archive,
 render the GIF, write the report, and copy what the README and GitHub Pages
-show into SITE_DIR (index.html, timelapse.gif, report.png).
+show into SITE_DIR (index.html, timelapse.gif, card.json, report.png).
+card.json is built from the same run as the page, so their numbers agree.
 
     python scripts/build_demo.py SITE_DIR [--screenshot]
 
@@ -9,8 +10,10 @@ show into SITE_DIR (index.html, timelapse.gif, report.png).
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -18,7 +21,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from facelapse import cli  # noqa: E402
+from scripts.make_card import build_card  # noqa: E402
 from tests.report_fixture import build_demo  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def screenshot(page_path: Path, out: Path) -> None:
@@ -40,6 +46,13 @@ def main(site: Path, shot: bool) -> None:
     site.mkdir(parents=True, exist_ok=True)
     shutil.copy(work / "out" / "report.html", site / "index.html")
     shutil.copy(work / "out" / "timelapse.gif", site / "timelapse.gif")
+    manifest = json.loads((work / "out" / "manifest.json").read_text())
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    n_photos = len(list((work / "photos").glob("*.*g")))
+    card = build_card(manifest, sha, n_photos)
+    (site / "card.json").write_text(json.dumps(card, indent=2) + "\n")
     if shot:
         screenshot(site / "index.html", site / "report.png")
     print(f"[demo] {site}")
