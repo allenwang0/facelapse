@@ -48,14 +48,14 @@ def test_jitter_figure_matches_the_committed_trace(tmp_path: Path) -> None:
     raw, smooth = _jitter(_series("Raw fit")), _jitter(_series("Smoothed"))
     assert smooth < raw, "the figure claims smoothing reduces jitter"
     text = _text(_build(tmp_path))
-    assert f"from {raw:.2f} to {smooth:.2f} px" in text
+    assert f"from {raw:.2f} to {smooth:.2f}\u202fpx" in text
     assert smooth == pytest.approx(CARD["metric"]["value"], abs=1e-3)
 
 
 def test_memory_claim_is_the_committed_measurement(tmp_path: Path) -> None:
     mib = BENCH["peak_rss_bytes"] / 2**20
     text = _text(_build(tmp_path))
-    assert f"{mib:,.0f} MiB" in text
+    assert f"{mib:,.0f}\u202fMiB" in text
     assert f"{BENCH['frames']:,} synthetic" in text
     readme = (ROOT / "README.md").read_text()
     assert f"{mib:,.0f} MiB peak memory for {BENCH['frames']:,} synthetic" in readme

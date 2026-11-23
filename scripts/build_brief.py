@@ -30,7 +30,7 @@ PAGE_URL = "https://allenwang0.github.io/facelapse/"
 HOME_URL = "https://allenwang0.github.io/"
 README_START = "<!-- results:start -->"
 README_END = "<!-- results:end -->"
-THIN = " "
+THIN = "\u202f"  # narrow no-break space: a number never wraps from its unit
 
 
 def load(rel):
@@ -225,8 +225,8 @@ def build_page(card, bench, shas):
             rk.tag(
                 "p",
                 Raw(
-                    f"A per-photo alignment is exact but jumpy: detector noise moves the eyes by a pixel or two from frame "
-                    f"to frame. facelapse smooths the sequence of alignments in canvas space before warping.{R('E3')}"
+                    f"A per-photo alignment is exact but jumpy: landmark noise shifts where the eyes land from one frame "
+                    f"to the next. facelapse smooths the sequence of alignments in canvas space before warping.{R('E3')}"
                 ),
             ),
             Raw("</div>"),
@@ -278,6 +278,7 @@ def build_page(card, bench, shas):
                     ("Run date", bench["date"][:10]),
                 ]
             ),
+            Raw('<div style="margin-top:40px"></div>'),
             rk.table(
                 "Evidence",
                 ["ID", "Claim", "Source", "Class"],
