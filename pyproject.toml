@@ -28,7 +28,7 @@ dependencies = {file = ["requirements.txt"]}
 include = ["facelapse*"]
 
 [tool.setuptools.package-data]
-facelapse = ["*.html", "*.m"]
+facelapse = ["*.html", "*.m", "kit/*.css", "kit/*.js"]
 
 [project.scripts]
 facelapse = "facelapse.cli:main"
