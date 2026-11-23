@@ -1,9 +1,11 @@
 name: Pages
 
+# Publishes the committed brief (docs/index.html, built by scripts/build_brief.py
+# from committed results) as index.html, next to the synthetic demo the pipeline
+# builds: its own report (report.html) and the timelapse GIF.
 on:
   push:
-    branches: [master, main]
-  workflow_dispatch:
+    branches: [master]
 
 permissions:
   contents: read
@@ -19,13 +21,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the brief links results at the commit that last changed them
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,e2e]"
       - run: playwright install --with-deps chromium
+      - name: Report kit matches its pinned hashes
+        run: python report-kit/check_kit.py
+      - name: Committed brief matches the committed results
+        run: |
+          python scripts/build_brief.py
+          git diff --exit-code -- docs
       - name: Build the synthetic demo (generated faces, stubbed detection)
         run: python scripts/build_demo.py _site --screenshot
+      - name: Brief as index.html, pipeline report as report.html
+        run: |
+          mv _site/index.html _site/report.html
+          cp docs/index.html _site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
